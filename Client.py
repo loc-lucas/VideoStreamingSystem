@@ -1,8 +1,8 @@
 from socket import timeout
 from threading import Thread, current_thread
-from PySide2.QtWidgets import QWidget,QPushButton, QMessageBox, QLabel
+from PySide2.QtWidgets import QWidget,QPushButton, QMessageBox, QLabel, QApplication, QSlider, QVBoxLayout, QHBoxLayout
 from PySide2.QtGui import QIcon, QPixmap
-from PySide2.QtCore import Qt
+from PySide2.QtCore import Qt,QSize
 from PIL import Image
 import socket, threading, sys, traceback, os
 from RtpPacket import RtpPacket
@@ -38,29 +38,56 @@ class Client(QWidget):
 		self.frameNbr = 0
 		self.setWindowTitle("Promise")
 		self.label = QLabel(self)
-		self.label.resize(800,600)
-		self.setGeometry(1000,600,800,600)
-		self.setIcon()
-		self.setButton()
-
-	def setIcon(self):
+		self.label.setFixedSize(800,450)
+		self.label.setStyleSheet("QWidget {background-color: rgba(0,0,0,1);}")
+		self.label.setAlignment(Qt.AlignCenter)
+		self.setGeometry(400,300,800,550)
+		#Apps icon
 		appIcon = QIcon("image.icon")
 		self.setWindowIcon(appIcon)
-	def setButton(self):
-		btn1 = QPushButton("Setup", self)
-		btn1.move(50,500)	
-		btn1.clicked.connect(self.setupMovie)
-		btn2 = QPushButton("Play", self)
-		btn2.move(250,500)
-		btn2.clicked.connect(self.playMovie)
-		btn3 = QPushButton("Pause", self)
-		btn3.move(450,500)
-		btn3.clicked.connect(self.pauseMovie)
-		btn4 = QPushButton("Tear down", self)
-		btn4.move(650,500)
-		btn4.clicked.connect(self.exitClient)
-	def closeEvent(self ,event):
-		self.client.handler()
+		#Create slider
+		slider = QSlider(Qt.Horizontal)
+		slider.setRange(0,self.frameNbr)
+		#Create buttons
+		setupBtn = QPushButton("", self)
+		setupBtn.setFixedWidth(150)	
+		setupBtn.setIcon(QIcon('setup.icon'))
+		setupBtn.setIconSize(QSize(30,30))
+		setupBtn.clicked.connect(self.setupMovie)
+
+		playBtn = QPushButton("", self)
+		playBtn.setFixedWidth(150)
+		playBtn.setIcon(QIcon('play.icon'))
+		playBtn.setIconSize(QSize(30,30))
+		playBtn.clicked.connect(self.playMovie)
+
+		pauseBtn = QPushButton("", self)
+		pauseBtn.setFixedWidth(150)
+		pauseBtn.setIcon(QIcon('pause.icon'))
+		pauseBtn.setIconSize(QSize(30,30))
+		pauseBtn.clicked.connect(self.pauseMovie)
+
+		stopBtn = QPushButton("", self)
+		stopBtn.setFixedWidth(150)
+		stopBtn.setIcon(QIcon('stop.icon'))
+		stopBtn.setIconSize(QSize(30,30))
+		stopBtn.clicked.connect(self.exitClient)
+		#HBoxLayout
+		hBox = QHBoxLayout()
+		hBox.setContentsMargins(0,0,0,0)
+		hBox.addWidget(setupBtn)
+		hBox.addWidget(playBtn)
+		hBox.addWidget(pauseBtn)
+		hBox.addWidget(stopBtn)
+		#VBoxLayout
+		vBox = QVBoxLayout()
+		vBox.addWidget(self.label)
+		#vBox.addWidget(slider)
+		vBox.addLayout(hBox)	
+		vBox.addStretch()
+		self.setLayout(vBox)
+	def closeEvent(self, event):
+		self.handler()
 	def setupMovie(self):
 		"""Setup button handler."""
 		#TODO
@@ -71,7 +98,7 @@ class Client(QWidget):
 		"""Teardown button handler."""
 		#TODO
 		self.sendRtspRequest(self.TEARDOWN)
-		self.master.destroy() ### close the GUI window
+		self.master.quit() ### close the GUI window
 
 	def pauseMovie(self):
 		"""Pause button handler."""
@@ -103,8 +130,8 @@ class Client(QWidget):
 						self.frameNbr = current_frame
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
 			except:
-				# if self.playEvent.isSet():
-				# 	break
+				if self.playEvent.isSet():
+					break
 				if self.teardownAcked == 1:
 					self.rtpSocket.shutdown(socket.SHUT_RDWR)
 					self.rtpSocket.close()  ## can we close socket without shutting down it
@@ -121,7 +148,9 @@ class Client(QWidget):
 
 	def updateMovie(self, imageFile):
 		self.pixmap = QPixmap(imageFile)
-		self.label.setPixmap(self.pixmap)
+		w = self.label.width()
+		h = self.label.height()
+		self.label.setPixmap(self.pixmap.scaled(w, h, Qt.KeepAspectRatio))
 
 	def connectToServer(self):
 		"""Connect to the Server. Start a new RTSP/TCP session."""
@@ -168,6 +197,7 @@ class Client(QWidget):
 			if self.requestSent == self.TEARDOWN:
 				self.rtspSocket.shutdown(socket.SHUT_RDWR)
 				self.rtspSocket.close()
+				break
 			
 
 	def parseRtspReply(self, data):
