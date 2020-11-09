@@ -1,16 +1,17 @@
 from socket import timeout
 from threading import Thread, current_thread
-from tkinter import *
-import tkinter.messagebox
-from PIL import Image, ImageTk
+from PySide2.QtWidgets import QWidget,QPushButton, QMessageBox, QLabel
+from PySide2.QtGui import QIcon, QPixmap
+from PySide2.QtCore import Qt
+from PIL import Image
 import socket, threading, sys, traceback, os
-
 from RtpPacket import RtpPacket
 
 CACHE_FILE_NAME = "cache-"
 CACHE_FILE_EXT = ".jpg"
 
-class Client:
+	
+class Client(QWidget):
 	INIT = 0
 	READY = 1
 	PLAYING = 2
@@ -23,9 +24,8 @@ class Client:
 	
 	# Initiation..
 	def __init__(self, master, serveraddr, serverport, rtpport, filename):
+		super(Client, self).__init__()
 		self.master = master
-		self.master.protocol("WM_DELETE_WINDOW", self.handler)
-		self.createWidgets()
 		self.serverAddr = serveraddr
 		self.serverPort = int(serverport)
 		self.rtpPort = int(rtpport)
@@ -36,38 +36,31 @@ class Client:
 		self.teardownAcked = 0
 		self.connectToServer()
 		self.frameNbr = 0
-		
-	# THIS GUI IS JUST FOR REFERENCE ONLY, STUDENTS HAVE TO CREATE THEIR OWN GUI 	
-	def createWidgets(self):
-		"""Build GUI."""
-		# Create Setup button
-		self.setup = Button(self.master, width=20, padx=3, pady=3)
-		self.setup["text"] = "Setup"
-		self.setup["command"] = self.setupMovie
-		self.setup.grid(row=1, column=0, padx=2, pady=2)
-		
-		# Create Play button		
-		self.start = Button(self.master, width=20, padx=3, pady=3)
-		self.start["text"] = "Play"
-		self.start["command"] = self.playMovie
-		self.start.grid(row=1, column=1, padx=2, pady=2)
-		
-		# Create Pause button			
-		self.pause = Button(self.master, width=20, padx=3, pady=3)
-		self.pause["text"] = "Pause"
-		self.pause["command"] = self.pauseMovie
-		self.pause.grid(row=1, column=2, padx=2, pady=2)
-		
-		# Create Teardown button
-		self.teardown = Button(self.master, width=20, padx=3, pady=3)
-		self.teardown["text"] = "Teardown"
-		self.teardown["command"] =  self.exitClient
-		self.teardown.grid(row=1, column=3, padx=2, pady=2)
-		
-		# Create a label to display the movie
-		self.label = Label(self.master, height=19)
-		self.label.grid(row=0, column=0, columnspan=4, sticky=W+E+N+S, padx=5, pady=5) 
-	
+		self.setWindowTitle("Promise")
+		self.label = QLabel(self)
+		self.label.resize(800,600)
+		self.setGeometry(1000,600,800,600)
+		self.setIcon()
+		self.setButton()
+
+	def setIcon(self):
+		appIcon = QIcon("image.icon")
+		self.setWindowIcon(appIcon)
+	def setButton(self):
+		btn1 = QPushButton("Setup", self)
+		btn1.move(50,500)	
+		btn1.clicked.connect(self.setupMovie)
+		btn2 = QPushButton("Play", self)
+		btn2.move(250,500)
+		btn2.clicked.connect(self.playMovie)
+		btn3 = QPushButton("Pause", self)
+		btn3.move(450,500)
+		btn3.clicked.connect(self.pauseMovie)
+		btn4 = QPushButton("Tear down", self)
+		btn4.move(650,500)
+		btn4.clicked.connect(self.exitClient)
+	def closeEvent(self ,event):
+		self.client.handler()
 	def setupMovie(self):
 		"""Setup button handler."""
 		#TODO
@@ -107,7 +100,7 @@ class Client:
 					rtpPacket.decode(data)
 					current_frame = rtpPacket.seqNum()
 					if current_frame > self.frameNbr:
-						self.frameNbr = current_frame;
+						self.frameNbr = current_frame
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
 			except:
 				# if self.playEvent.isSet():
@@ -125,13 +118,10 @@ class Client:
 		temp_file.write(data)
 		temp_file.close()
 		return file_name
-	
+
 	def updateMovie(self, imageFile):
-		"""Update the image file as video frame in the GUI."""
-		#TODO
-		frame = ImageTk.PhotoImage(Image.open(imageFile))
-		self.label.configure(image=frame, height = 288)
-		self.label.image = frame		
+		self.pixmap = QPixmap(imageFile)
+		self.label.setPixmap(self.pixmap)
 
 	def connectToServer(self):
 		"""Connect to the Server. Start a new RTSP/TCP session."""
@@ -140,7 +130,7 @@ class Client:
 		try:
 			self.rtspSocket.connect((self.serverAddr, self.serverPort))
 		except:
-			tkinter.messagebox.showwarning('Connection Failed', 'Connection to \'%s\' failed.' %self.serverAddr)
+			QMessageBox.Warning(self,'Connection Failed', 'Connection to \'%s\' failed.' %self.serverAddr)
 	
 	def sendRtspRequest(self, requestCode):
 		"""Send RTSP request to the server."""	
@@ -218,13 +208,14 @@ class Client:
 		try:
 			self.rtpSocket.bind(('', self.rtpPort))
 		except:
-			tkinter.messagebox.showwarning('Unable to Bind', 'Unable to bind PORT=%d' %self.rtpPort)
+			QMessageBox.Warning(self, 'Unable to Bind', 'Unable to bind PORT=%d' %self.rtpPort)
 
 	def handler(self):
 		"""Handler on explicitly closing the GUI window."""
 		#TODO
 		self.pauseMovie()
-		if tkinter.messagebox.askokcancel("You are about to quit, aren't You?", "The movie needs to be loaded from the beginning next time."):
+		userInfo = QMessageBox.question(self, 'Confirmation', 'Do you want to close?', QMessageBox.Yes, QMessageBox.No)
+		if userInfo == QMessageBox.Yes:
 			self.exitClient()
-		else: # When the user presses cancel, resume playing.
+		elif userInfo == QMessageBox.No:
 			self.playMovie()
