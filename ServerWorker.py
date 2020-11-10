@@ -99,7 +99,6 @@ class ServerWorker:
 		# Process TEARDOWN request
 		elif requestType == self.TEARDOWN:
 			print("processing TEARDOWN\n")
-
 			self.clientInfo['event'].set()
 			
 			self.replyRtsp(self.OK_200, seq[1])
@@ -110,7 +109,7 @@ class ServerWorker:
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
 		while True:
-			self.clientInfo['event'].wait(0.5) 
+			self.clientInfo['event'].wait(0.05) 
 			
 			# Stop sending if request is PAUSE or TEARDOWN
 			if self.clientInfo['event'].isSet(): 
@@ -125,9 +124,6 @@ class ServerWorker:
 					self.clientInfo['rtpSocket'].sendto(self.makeRtp(data, frameNumber),(address,port)) #UDP
 				except:
 					print("Connection Error")
-					#print('-'*60)
-					#traceback.print_exc(file=sys.stdout)
-					#print('-'*60)
 
 	def makeRtp(self, payload, frameNbr):
 		"""RTP-packetize the video data."""
