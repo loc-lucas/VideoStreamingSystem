@@ -73,6 +73,12 @@ class Client(QWidget):
 		stopBtn.setIcon(QIcon('stop.icon'))
 		stopBtn.setIconSize(QSize(30,30))
 		stopBtn.clicked.connect(self.exitClient)
+
+		# bwBtn = QPushButton("", self)
+		# bwBtn.setFixedWidth(150)
+		# bwBtn.setIcon(QIcon('stop.icon'))
+		# stopBtn.setIconSize(QSize(30,30))
+		# stopBtn.clicked.connect(self.exitClient)
 		#HBoxLayout
 		hBox = QHBoxLayout()
 		hBox.setContentsMargins(0,0,0,0)
