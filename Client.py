@@ -37,12 +37,18 @@ class Client(QWidget):
 		self.teardownAcked = 0
 		self.connectToServer()
 		self.frameNbr = 0
+
+		self.isLock = 1
+
 		self.setWindowTitle("Promise")
 		self.label = QLabel(self)
 		self.label.setFixedSize(800,450)
 		self.label.setStyleSheet("QWidget {background-color: rgba(0,0,0,1);}")
 		self.label.setAlignment(Qt.AlignCenter)
 		self.setGeometry(400,300,800,550)
+		self.init_ui()
+
+	def init_ui(self):
 		#Apps icon
 		appIcon = QIcon("image.icon")
 		self.setWindowIcon(appIcon)
@@ -50,11 +56,11 @@ class Client(QWidget):
 		slider = QSlider(Qt.Horizontal)
 		slider.setRange(0,self.frameNbr)
 		#Create buttons
-		setupBtn = QPushButton("", self)
-		setupBtn.setFixedWidth(150)	
-		setupBtn.setIcon(QIcon('setup.icon'))
-		setupBtn.setIconSize(QSize(30,30))
-		setupBtn.clicked.connect(self.setupMovie)
+		# setupBtn = QPushButton("", self)
+		# setupBtn.setFixedWidth(150)	
+		# setupBtn.setIcon(QIcon('setup.icon'))
+		# setupBtn.setIconSize(QSize(30,30))
+		# setupBtn.clicked.connect(self.setupMovie)
 
 		playBtn = QPushButton("", self)
 		playBtn.setFixedWidth(150)
@@ -72,17 +78,11 @@ class Client(QWidget):
 		stopBtn.setFixedWidth(150)
 		stopBtn.setIcon(QIcon('stop.icon'))
 		stopBtn.setIconSize(QSize(30,30))
-		stopBtn.clicked.connect(self.exitClient)
-
-		# bwBtn = QPushButton("", self)
-		# bwBtn.setFixedWidth(150)
-		# bwBtn.setIcon(QIcon('stop.icon'))
-		# stopBtn.setIconSize(QSize(30,30))
-		# stopBtn.clicked.connect(self.exitClient)
+		stopBtn.clicked.connect(self.stopMovie)
 		#HBoxLayout
 		hBox = QHBoxLayout()
 		hBox.setContentsMargins(0,0,0,0)
-		hBox.addWidget(setupBtn)
+		#hBox.addWidget(setupBtn)
 		hBox.addWidget(playBtn)
 		hBox.addWidget(pauseBtn)
 		hBox.addWidget(stopBtn)
@@ -95,16 +95,23 @@ class Client(QWidget):
 		self.setLayout(vBox)
 	def closeEvent(self, event):
 		self.handler()
-	def setupMovie(self):
-		"""Setup button handler."""
-		#TODO
-		if self.state == self.INIT:
-			self.sendRtspRequest(self.SETUP)
-	
+
+	def stopMovie(self):
+		self.sendRtspRequest(self.TEARDOWN)
+		self.rtspSeq = 0
+		
+		# if self.isLock == 0:
+		# 	self.lock.release()
+		# 	self.label.clear()
+		# 	self.sendRtspRequest(self.SETUP)
+
 	def exitClient(self):
 		"""Teardown button handler."""
 		#TODO
 		self.sendRtspRequest(self.TEARDOWN)
+		self.rtspSocket.shutdown(socket.SHUT_RDWR)
+		self.rtspSocket.close()
+		
 		self.master.quit() ### close the GUI window
 
 	def pauseMovie(self):
@@ -116,6 +123,7 @@ class Client(QWidget):
 	def playMovie(self):
 		"""Play button handler."""
 		#TODO
+		#if self.firstPlay == 0:
 		if self.state == self.READY:
 			new_t = threading.Thread(target = self.listenRtp)
 			new_t.start()
@@ -141,7 +149,7 @@ class Client(QWidget):
 					break
 				if self.teardownAcked == 1:
 					self.rtpSocket.shutdown(socket.SHUT_RDWR)
-					self.rtpSocket.close()  ## can we close socket without shutting down it
+					self.rtpSocket.close()
 					break
 					
 	def writeFrame(self, data):
@@ -169,6 +177,7 @@ class Client(QWidget):
 		#self.rtspSocket.connect((self.serverAddr, 4242))
 		try:
 			self.rtspSocket.connect((self.serverAddr, self.serverPort))
+			self.sendRtspRequest(self.SETUP)
 		except:
 			QMessageBox.warning(self,'Connection Failed', 'Connection to \'%s\' failed.' %self.serverAddr)
 	
@@ -205,10 +214,9 @@ class Client(QWidget):
 				print(reply.decode('utf-8'))
 				print('\n------------------------\n')
 				self.parseRtspReply(reply.decode("utf-8"))
+				
 			if self.requestSent == self.TEARDOWN:
-				self.rtspSocket.shutdown(socket.SHUT_RDWR)
-				self.rtspSocket.close()
-				#break
+				break
 			
 
 	def parseRtspReply(self, data):
@@ -229,7 +237,6 @@ class Client(QWidget):
 						self.state = self.PLAYING
 					if self.requestSent == self.PAUSE:
 						self.state = self.READY
-						####
 					if self.requestSent == self.TEARDOWN:
 						self.state = self.INIT
 						self.teardownAcked = 1
@@ -249,7 +256,7 @@ class Client(QWidget):
 		try:
 			self.rtpSocket.bind(('', self.rtpPort))
 		except:
-			QMessageBox.Warning(self, 'Unable to Bind', 'Unable to bind PORT=%d' %self.rtpPort)
+			QMessageBox.warning(self, 'Unable to Bind', 'Unable to bind PORT=%d' %self.rtpPort)
 
 	def handler(self):
 		"""Handler on explicitly closing the GUI window."""
@@ -258,5 +265,3 @@ class Client(QWidget):
 		userInfo = QMessageBox.question(self, 'Confirmation', 'Do you want to close?', QMessageBox.Yes, QMessageBox.No)
 		if userInfo == QMessageBox.Yes:
 			self.exitClient()
-		elif userInfo == QMessageBox.No:
-			self.playMovie()
