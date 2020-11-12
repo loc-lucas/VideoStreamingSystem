@@ -51,6 +51,7 @@ class ServerWorker:
 		seq = request[1].split(' ')
 		
 		# Process SETUP request
+		print(requestType)
 		if requestType == self.SETUP:
 			if self.state == self.INIT:
 				# Update state
@@ -95,16 +96,16 @@ class ServerWorker:
 				self.clientInfo['event'].set()
 			
 				self.replyRtsp(self.OK_200, seq[1])
-		
+			
 		# Process TEARDOWN request
 		elif requestType == self.TEARDOWN:
-			print("processing TEARDOWN\n")
-			self.clientInfo['event'].set()
-			
-			self.replyRtsp(self.OK_200, seq[1])
-			
-			# Close the RTP socket
-			self.clientInfo['rtpSocket'].close()
+				print("processing TEARDOWN\n")
+				self.clientInfo['event'].set()
+				print(self.clientInfo['event'].isSet())
+				self.state = self.INIT
+				self.replyRtsp(self.OK_200, seq[1])
+				# Close the RTP socket
+				self.clientInfo['rtpSocket'].close()
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
