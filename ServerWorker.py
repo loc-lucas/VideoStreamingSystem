@@ -25,6 +25,7 @@ class ServerWorker:
 		self.clientInfo = clientInfo
 		
 	def run(self):
+		print(str(self.clientInfo))
 		new_t = threading.Thread(target=self.recvRtspRequest)
 		new_t.start()
 	
@@ -57,8 +58,11 @@ class ServerWorker:
 				print("processing SETUP\n")
 				
 				try:
+					#print(filename)
 					self.clientInfo['videoStream'] = VideoStream(filename)
 					self.state = self.READY
+					# self.clientInfo['videoStream'].totalFrame()
+					# self.clientInfo['videoStream'].totalTime()
 				except IOError:
 					self.replyRtsp(self.FILE_NOT_FOUND_404, seq[1])
 				

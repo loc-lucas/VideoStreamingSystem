@@ -157,10 +157,14 @@ class Client(QWidget):
 		"""Connect to the Server. Start a new RTSP/TCP session."""
 		#TODO
 		self.rtspSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		# self.rtspSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		# server_address = ('', self.serverPort)
+		# self.rtspSocket.bind(server_address)
+		#self.rtspSocket.connect((self.serverAddr, 4242))
 		try:
 			self.rtspSocket.connect((self.serverAddr, self.serverPort))
 		except:
-			QMessageBox.Warning(self,'Connection Failed', 'Connection to \'%s\' failed.' %self.serverAddr)
+			QMessageBox.warning(self,'Connection Failed', 'Connection to \'%s\' failed.' %self.serverAddr)
 	
 	def sendRtspRequest(self, requestCode):
 		"""Send RTSP request to the server."""	
@@ -198,7 +202,7 @@ class Client(QWidget):
 			if self.requestSent == self.TEARDOWN:
 				self.rtspSocket.shutdown(socket.SHUT_RDWR)
 				self.rtspSocket.close()
-				break
+				#break
 			
 
 	def parseRtspReply(self, data):
@@ -235,7 +239,7 @@ class Client(QWidget):
 		self.rtpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)		
 		# Set the timeout value of the socket to 0.5sec
 		# ...
-		self.rtpSocket.settimeout(0.5)	
+		self.rtpSocket.settimeout(5)	
 		try:
 			self.rtpSocket.bind(('', self.rtpPort))
 		except:
