@@ -9,6 +9,8 @@ class ServerWorker:
 	PLAY = 'PLAY'
 	PAUSE = 'PAUSE'
 	TEARDOWN = 'TEARDOWN'
+	FORWARD = 'FORWARD'
+	BACKWARD = 'BACKWARD'
 	DESCRIBE = 'DESCRIBE'
 	
 	INIT = 0
@@ -26,6 +28,7 @@ class ServerWorker:
 		self.clientInfo = clientInfo
 		
 	def run(self):
+		print(str(self.clientInfo))
 		new_t = threading.Thread(target=self.recvRtspRequest)
 		new_t.start()
 	
@@ -59,8 +62,11 @@ class ServerWorker:
 				print("processing SETUP\n")
 				
 				try:
+					#print(filename)
 					self.clientInfo['videoStream'] = VideoStream(filename)
 					self.state = self.READY
+					self.clientInfo['videoStream'].totalFrame()
+					self.clientInfo['videoStream'].totalTime()
 				except IOError:
 					self.replyRtsp(self.FILE_NOT_FOUND_404, seq[1])
 				
@@ -104,6 +110,22 @@ class ServerWorker:
 				self.clientInfo['event'].set()
 				self.state = self.INIT
 				self.replyRtsp(self.OK_200, seq[1])
+				# Close the RTP socket
+				self.clientInfo['rtpSocket'].close()
+		
+		# Process FORWARD request
+		elif requestType == self.FORWARD:
+			if self.state == self.PLAYING or self.state == self.READY:
+				print("processing FORWARD\n")
+				self.clientInfo['videoStream'].moveForward()
+				self.replyRtsp(self.OK_200, seq[1])
+
+		# Process BACKWARDvrequest
+		elif requestType == self.BACKWARD:
+			if self.state == self.PLAYING or self.state == self.READY:
+				print("processing BACKWARD\n")
+				self.clientInfo['videoStream'].moveBackward()
+				self.replyRtsp(self.OK_200, seq[1])
 		elif requestType == self.DESCRIBE:
 				print("processing DESCRIBE\n")
 				self.replyRtsp(self.OK_200, seq[1])
@@ -115,7 +137,7 @@ class ServerWorker:
 				m = 'video ' + str(self.clientInfo['rtpPort']) + ' RTP/UDP'
 
 				sdp1 ='\n\nv=' + str(v) + '\ns=' + s + '\ni=' + i + '\ne=' + e + '\nm=' + m 
-				sdp = 'Content-Base:' + filename + '\nContent-Type: application/sdp' + '\nContent-Length: ' + str(len(sdp1)) + sdp1
+				sdp = 'Content-Base:' + filename + '\nContent-Type:application/sdp' + '\nContent-Length:' + str(len(sdp1)) + sdp1
 				print(sdp)
 				f = open("sdp.txt","w")
 				f.write(sdp)
