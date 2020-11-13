@@ -117,17 +117,35 @@ class Client(QWidget):
 		# if self.state == self.PLAYING or self.state == self.READY:
 		# 	self.sendRtspRequest(self.BACKKWARD)
 		pass
+
 	def describeMovie(self):
 		pass
+
 	def closeEvent(self, event):
-		self.handler()
+		reply = QMessageBox.question(
+			self,
+			self.tr("Confirmation"),
+			self.tr("You are about to quit!"),
+			QMessageBox.Yes|
+			QMessageBox.No, QMessageBox.No)
+		if reply == QMessageBox.Yes:
+			self.exitClient()
+			event.accept()
+		else:
+			event.ignore()
+		
+
 	def stopMovie(self):
 		self.sendRtspRequest(self.TEARDOWN)
+		self.recvRtsp_t.join()
+		self.play_t.join()
 		self.rtspSeq = 0
-
-		if self.replySent:	
-			self.label.clear()
-			self.sendRtspRequest(self.SETUP)
+		self.sessionId = 0
+		self.requestSent = -1
+		self.stopListeningAcked = 0
+		self.frameNbr = 0	
+		self.label.clear()
+		self.sendRtspRequest(self.SETUP)
 
 	def exitClient(self):
 		"""Teardown button handler."""
@@ -285,9 +303,3 @@ class Client(QWidget):
 		except:
 			QMessageBox.warning(self, 'Unable to Bind', 'Unable to bind PORT=%d' %self.rtpPort)
 
-	def handler(self):
-		"""Handler on explicitly closing the GUI window."""
-		#TODO
-		userInfo = QMessageBox.question(self, 'Confirmation', 'Do you want to close?', QMessageBox.Yes, QMessageBox.No)
-		if userInfo == QMessageBox.Yes:
-			self.exitClient()
