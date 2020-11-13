@@ -21,6 +21,7 @@ class Client(QWidget):
 	PLAY = 1
 	PAUSE = 2
 	TEARDOWN = 3
+	GETLIST = 4
 	
 	# Initiation..
 	def __init__(self, master, serveraddr, serverport, rtpport, filename):
@@ -35,6 +36,7 @@ class Client(QWidget):
 		self.requestSent = -1
 		self.stopListeningAcked = 0
 		self.connectToServer()
+		# self.getListOfVids()
 		self.frameNbr = 0
 
 		self.replySent = 0
@@ -108,6 +110,9 @@ class Client(QWidget):
 		vBox.addLayout(hBox)	
 		vBox.addStretch()
 		self.setLayout(vBox)
+
+	# def getListOfVids(self):
+	# 	self.sendRtspRequest(self.GETLIST)
 
 	def bwMovie(self):
 		# if self.state == self.PLAYING or self.state == self.READY:

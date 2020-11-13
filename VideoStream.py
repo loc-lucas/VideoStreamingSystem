@@ -9,15 +9,13 @@ class VideoStream:
 		
 	def nextFrame(self):
 		"""Get next frame."""
-		data = self.file.read(5) # Get the framelength from the first 5 bits
+		data = self.file.read(5) # Get the framelength from the first 5 bytes
 		if data: 
 			framelength = int(data)			
 			# Read the current frame
 			data = self.file.read(framelength)
 			self.frameNum += 1
 		return data
-	def rewind(self):
-		self.file.seek(0,0)
 
 	def frameNbr(self):
 		"""Get frame number."""
