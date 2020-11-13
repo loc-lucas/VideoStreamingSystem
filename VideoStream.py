@@ -55,6 +55,7 @@ class VideoStream:
 			self.frameIdx += 100
 		else:
 			self.frameIdx = int(index)
+			index = self.frameTrack[int(index)]
 		self.file.seek(int(index, 16), 0)
 
 	def frameNbr(self):
