@@ -41,7 +41,7 @@ class Client(QWidget):
 		self.stopListeningAcked = 0
 		self.connectToServer()
 		self.frameNbr = 0
-
+		self.totalTime = 0
 		self.replySent = 0
 
 		self.setWindowTitle("Promise")
@@ -148,22 +148,24 @@ class Client(QWidget):
 		
 
 	def stopMovie(self):
-		self.sendRtspRequest(self.TEARDOWN)
-		self.recvRtsp_t.join()
-		self.play_t.join()
-		self.rtspSeq = 0
-		self.sessionId = 0
-		self.requestSent = -1
-		self.stopListeningAcked = 0
-		self.frameNbr = 0	
-		self.label.clear()
-		self.sendRtspRequest(self.SETUP)
+		if (self.requestSent == self.PAUSE and self.state == self.READY) or self.requestSent == self.PLAY:
+			self.sendRtspRequest(self.TEARDOWN)
+			self.play_t.join()
+			self.recvRtsp_t.join()
+			self.rtspSeq = 0
+			self.sessionId = 0
+			self.requestSent = -1
+			self.stopListeningAcked = 0
+			self.frameNbr = 0	
+			self.label.clear()
+			self.sendRtspRequest(self.SETUP)
 
 	def exitClient(self):
 		"""Teardown button handler."""
 		#TODO
 		self.sendRtspRequest(self.TEARDOWN)
-		self.play_t.join()
+		if self.state == self.READY and self.requestSent == self.PAUSE:
+			self.play_t.join()
 		self.recvRtsp_t.join()
 		self.rtspSocket.shutdown(socket.SHUT_RDWR)
 		self.rtspSocket.close()
@@ -215,6 +217,7 @@ class Client(QWidget):
 		#TODO
 		while True:
 			try:
+				print(threading.active_count())
 				data = self.rtpSocket.recv(20480)   ## Why 20480?
 				if data:
 					rtpPacket = RtpPacket() 		## In reality, is the RtpPacket.py the same place as Client.py?
@@ -304,10 +307,13 @@ class Client(QWidget):
 				break
 			reply = self.rtspSocket.recv(256)
 			if reply:
-				print('\n--------Reply--------\n')
-				print(reply.decode('utf-8'))
-				print('\n------------------------\n')
-				self.parseRtspReply(reply.decode("utf-8"))
+				if reply.decode('utf-8')[:2] == 'tt':
+					self.totalTime = reply.decode('utf-8')[2:]
+				else:	
+					print('\n--------Reply--------\n')
+					print(reply.decode('utf-8'))
+					print('\n------------------------\n')
+					self.parseRtspReply(reply.decode("utf-8"))
 			
 			
 

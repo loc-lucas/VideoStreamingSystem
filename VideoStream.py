@@ -36,7 +36,6 @@ class VideoStream:
 				return self.tmpFrameNum			#total frame number
 	
 	def totalTime(self):
-		print(self.frameTrack[500])
 		return float(self.tmpFrameNum / 20)
 		
 	def moveBackward(self):	#move backward 5s

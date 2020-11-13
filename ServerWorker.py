@@ -1,6 +1,6 @@
 from random import randint
 import sys, traceback, threading, socket
-
+from datetime import datetime
 from VideoStream import VideoStream
 from RtpPacket import RtpPacket
 
@@ -28,7 +28,6 @@ class ServerWorker:
 		self.clientInfo = clientInfo
 		
 	def run(self):
-		print(str(self.clientInfo))
 		new_t = threading.Thread(target=self.recvRtspRequest)
 		new_t.start()
 	
@@ -66,7 +65,7 @@ class ServerWorker:
 					self.clientInfo['videoStream'] = VideoStream(filename)
 					self.state = self.READY
 					self.clientInfo['videoStream'].totalFrame()
-					self.clientInfo['videoStream'].totalTime()
+					
 				except IOError:
 					self.replyRtsp(self.FILE_NOT_FOUND_404, seq[1])
 				
@@ -75,8 +74,10 @@ class ServerWorker:
 				
 				# Send RTSP reply
 				self.replyRtsp(self.OK_200, seq[1])
-				
+				totalTime = ("tt" + str(self.clientInfo['videoStream'].totalTime())).encode()
+				self.clientInfo['rtspSocket'][0].send(totalTime)
 				# Get the RTP/UDP port from the last line
+
 				self.clientInfo['rtpPort'] = request[2].split(' ')[3]
 		
 		# Process PLAY request 		
@@ -88,7 +89,7 @@ class ServerWorker:
 				# Create a new socket for RTP/UDP
 				self.clientInfo["rtpSocket"] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 				self.replyRtsp(self.OK_200, seq[1])
-				
+
 				# Create a new thread and start sending RTP packets
 				self.clientInfo['event'] = threading.Event()
 				self.clientInfo['worker'] = threading.Thread(target=self.sendRtp) 
@@ -107,11 +108,15 @@ class ServerWorker:
 		# Process TEARDOWN request
 		elif requestType == self.TEARDOWN:
 				print("processing TEARDOWN\n")
-				self.clientInfo['event'].set()
+				try:
+					self.clientInfo['event'].set()
+				except: pass
 				self.state = self.INIT
 				self.replyRtsp(self.OK_200, seq[1])
 				# Close the RTP socket
-				self.clientInfo['rtpSocket'].close()
+				try:
+					self.clientInfo['rtpSocket'].close()
+				except: pass
 		
 		# Process FORWARD request
 		elif requestType == self.FORWARD:
@@ -131,12 +136,14 @@ class ServerWorker:
 				self.replyRtsp(self.OK_200, seq[1])
 				
 				v = 0 #protocol version
+				o = socket.gethostname()
 				s = 'Video streaming'
 				i = 'Using RTP and RTSP for video streaming'
 				e = 'huan.tran180220@hcmut.edu.vn, loc.buiquang@hcmut.edu.vn, an.onquan@hcmut.edu.vn'
+				t = datetime.now()
 				m = 'video ' + str(self.clientInfo['rtpPort']) + ' RTP/UDP'
-
-				sdp1 ='\n\nv=' + str(v) + '\ns=' + s + '\ni=' + i + '\ne=' + e + '\nm=' + m 
+				a = 'control:streamid=' + str(self.clientInfo['session']) + '\na=mimetype:string;\"video/MJPEG\"'
+				sdp1 ='\n\nv=' + str(v) + '\no=' + o + '\ns=' + s + '\ni=' + i + '\ne=' + e + '\nt=' + str(t) +'\nm=' + m + '\na=' + a
 				sdp = 'Content-Base:' + filename + '\nContent-Type:application/sdp' + '\nContent-Length:' + str(len(sdp1)) + sdp1
 				print(sdp)
 				f = open("sdp.txt","w")
