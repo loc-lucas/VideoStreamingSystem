@@ -33,7 +33,7 @@ class Client(QWidget):
 		self.rtspSeq = 0
 		self.sessionId = 0
 		self.requestSent = -1
-		self.teardownAcked = 0
+		self.stopListeningAcked = 0
 		self.connectToServer()
 		self.frameNbr = 0
 
@@ -108,9 +108,12 @@ class Client(QWidget):
 		"""Teardown button handler."""
 		#TODO
 		self.sendRtspRequest(self.TEARDOWN)
+		self.recvRtsp_t.join()
+		self.play_t.join()
 		self.rtspSocket.shutdown(socket.SHUT_RDWR)
 		self.rtspSocket.close()
-		
+		self.rtpSocket.shutdown(socket.SHUT_RDWR)
+		self.rtpSocket.close()
 		self.master.quit() ### close the GUI window
 
 	def pauseMovie(self):
@@ -124,17 +127,17 @@ class Client(QWidget):
 		#TODO
 		#if self.firstPlay == 0:
 		if self.state == self.READY:
-			new_t = threading.Thread(target = self.listenRtp)
-			new_t.start()
-			self.playEvent = threading.Event()
-			self.playEvent.clear()
+			self.play_t = threading.Thread(target = self.listenRtp)
+			self.play_t.start()
 			self.sendRtspRequest(self.PLAY)
 	
 	def listenRtp(self):		
 		"""Listen for RTP packets."""
 		#TODO
 		while True:
+			print("ack = ", self.stopListeningAcked)
 			try:
+				print(threading.active_count())
 				data = self.rtpSocket.recv(20480)   ## Why 20480?
 				if data:
 					rtpPacket = RtpPacket() 		## In reality, is the RtpPacket.py the same place as Client.py?
@@ -144,11 +147,7 @@ class Client(QWidget):
 						self.frameNbr = current_frame
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
 			except:
-				if self.playEvent.isSet():
-					break
-				if self.teardownAcked == 1:
-					self.rtpSocket.shutdown(socket.SHUT_RDWR)
-					self.rtpSocket.close()
+				if self.stopListeningAcked == 1:
 					break
 					
 	def writeFrame(self, data):
@@ -183,7 +182,8 @@ class Client(QWidget):
 		#-------------
 		self.rtspSeq += 1
 		if requestCode == self.SETUP and self.state == self.INIT:
-			threading.Thread(target=self.recvRtspReply).start()
+			self.recvRtsp_t = threading.Thread(target=self.recvRtspReply)
+			self.recvRtsp_t.start()
 			request = 'SETUP ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nTransport: RTP/UDP; client_port= ' + str(self.rtpPort)
 			self.requestSent = self.SETUP
 		elif requestCode == self.PLAY and self.state == self.READY:
@@ -203,15 +203,15 @@ class Client(QWidget):
 		"""Receive RTSP reply from the server."""
 		#TODO
 		while True:
+			
+			if self.requestSent == self.TEARDOWN:
+				break
 			reply = self.rtspSocket.recv(256)
 			if reply:
 				print('\n--------Reply--------\n')
 				print(reply.decode('utf-8'))
 				print('\n------------------------\n')
 				self.parseRtspReply(reply.decode("utf-8"))
-				
-			if self.requestSent == self.TEARDOWN:
-				break
 			
 
 	def parseRtspReply(self, data):
@@ -229,12 +229,14 @@ class Client(QWidget):
 						self.state = self.READY
 						self.openRtpPort()
 					if self.requestSent == self.PLAY:
+						self.stopListeningAcked = 0
 						self.state = self.PLAYING
 					if self.requestSent == self.PAUSE:
 						self.state = self.READY
+						self.stopListeningAcked = 1
 					if self.requestSent == self.TEARDOWN:
 						self.state = self.INIT
-						self.teardownAcked = 1
+						self.stopListeningAcked = 1
 
 	
 	def openRtpPort(self):
@@ -256,7 +258,7 @@ class Client(QWidget):
 	def handler(self):
 		"""Handler on explicitly closing the GUI window."""
 		#TODO
-		self.pauseMovie()
+		#self.pauseMovie()
 		userInfo = QMessageBox.question(self, 'Confirmation', 'Do you want to close?', QMessageBox.Yes, QMessageBox.No)
 		if userInfo == QMessageBox.Yes:
 			self.exitClient()
