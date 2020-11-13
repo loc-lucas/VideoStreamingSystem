@@ -41,14 +41,14 @@ class VideoStream:
 		
 	def moveBackward(self):	#move backward 5s
 		index = '0'
-		if self.frameIdx > 5:
-			index = self.frameTrack[self.frameIdx - 5]
-			self.frameIdx -= 5
+		if self.frameIdx > 100:
+			index = self.frameTrack[self.frameIdx - 100]
+			self.frameIdx -= 100
 		else:
 			self.frameIdx = 0
 		self.file.seek(int(index, 0), 0)
 
-	def moveForeward(self): #move foreward 5s
+	def moveForward(self): #move foreward 5s
 		index = str(self.tmpFrameNum - 1)
 		if self.frameIdx < self.tmpFrameNum - 100:
 			index = self.frameTrack[self.frameIdx + 100]
@@ -56,8 +56,6 @@ class VideoStream:
 		else:
 			self.frameIdx = int(index)
 		self.file.seek(int(index, 16), 0)
-
-
 
 	def frameNbr(self):
 		"""Get frame number."""

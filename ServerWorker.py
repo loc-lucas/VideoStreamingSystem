@@ -110,6 +110,7 @@ class ServerWorker:
 				self.replyRtsp(self.OK_200, seq[1])
 				# Close the RTP socket
 				self.clientInfo['rtpSocket'].close()
+		# TODO: process BACKWARD and FORWARD request
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""

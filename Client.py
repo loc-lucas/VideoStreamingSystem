@@ -22,6 +22,8 @@ class Client(QWidget):
 	PLAY = 1
 	PAUSE = 2
 	TEARDOWN = 3
+	FORWARD = 4
+	BACKKWARD = 5
 	
 	# Initiation..
 	def __init__(self, master, serveraddr, serverport, rtpport, filename):
@@ -79,20 +81,40 @@ class Client(QWidget):
 		stopBtn.setIcon(QIcon('stop.icon'))
 		stopBtn.setIconSize(QSize(30,30))
 		stopBtn.clicked.connect(self.stopMovie)
+
+		bwBtn = QPushButton("", self)
+		bwBtn.setFixedWidth(150)
+		bwBtn.setIcon(QIcon('backward.icon'))
+		bwBtn.setIconSize(QSize(30,30))
+		bwBtn.clicked.connect(self.bwMovie)
+
+		fwBtn = QPushButton("", self)
+		fwBtn.setFixedWidth(150)
+		fwBtn.setIcon(QIcon('forward.icon'))
+		fwBtn.setIconSize(QSize(30,30))
+		fwBtn.clicked.connect(self.fwMovie)
 		#HBoxLayout
 		hBox = QHBoxLayout()
 		hBox.setContentsMargins(0,0,0,0)
 		#hBox.addWidget(setupBtn)
+		hBox.addWidget(bwBtn)
 		hBox.addWidget(playBtn)
+		hBox.addWidget(fwBtn)
 		hBox.addWidget(pauseBtn)
 		hBox.addWidget(stopBtn)
 		#VBoxLayout
 		vBox = QVBoxLayout()
 		vBox.addWidget(self.label)
-		#vBox.addWidget(slider)
+		vBox.addWidget(slider)
 		vBox.addLayout(hBox)	
 		vBox.addStretch()
 		self.setLayout(vBox)
+	def bwMovie(self):
+		if self.state == self.PLAYING or self.state == self.READY:
+			self.sendRtspRequest(self.BACKKWARD)
+	def fwMovie(self):
+		if self.state == self.PLAYING or self.state == self.READY:
+			self.sendRtspRequest(self.BACKKWARD)
 	def closeEvent(self, event):
 		self.handler()
 
@@ -200,6 +222,12 @@ class Client(QWidget):
 		elif requestCode == self.TEARDOWN:
 			request = 'TEARDOWN ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
 			self.requestSent = self.TEARDOWN
+		elif requestCode == self.BACKKWARD:
+			request = 'BACKWARD ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+			self.requestSent = self.BACKKWARD
+		elif requestCode == self.FORWARD:
+			request = 'FORWARD ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+			self.requestSent = self.FORWARD
 		else: return
 		self.rtspSocket.send(request.encode())
 		print('\nData sent:\n' + request)

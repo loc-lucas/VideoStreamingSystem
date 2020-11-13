@@ -1,4 +1,5 @@
 import sys
+from time import time
 from VideoStream import VideoStream
 
 fileName = 'movie.Mjpeg'
@@ -13,7 +14,7 @@ print(int(obj.file.read(5)))
 # obj.nextFrame()
 # obj.nextFrame()
 
-
+print(round(float(time()),2))
 
 # print(obj.frameIdx)
 # print(obj.frameNum)
