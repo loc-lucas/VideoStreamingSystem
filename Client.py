@@ -33,11 +33,11 @@ class Client(QWidget):
 		self.rtspSeq = 0
 		self.sessionId = 0
 		self.requestSent = -1
-		self.teardownAcked = 0
+		self.stopListeningAcked = 0
 		self.connectToServer()
 		self.frameNbr = 0
 
-		self.isLock = 1
+		self.replySent = 0
 
 		self.setWindowTitle("Promise")
 		self.label = QLabel(self)
@@ -55,62 +55,90 @@ class Client(QWidget):
 		slider = QSlider(Qt.Horizontal)
 		slider.setRange(0,self.frameNbr)
 		#Create buttons
-		# setupBtn = QPushButton("", self)
-		# setupBtn.setFixedWidth(150)	
-		# setupBtn.setIcon(QIcon('setup.icon'))
-		# setupBtn.setIconSize(QSize(30,30))
-		# setupBtn.clicked.connect(self.setupMovie)
-
 		playBtn = QPushButton("", self)
 		playBtn.setFixedWidth(150)
-		playBtn.setIcon(QIcon('play.icon'))
 		playBtn.setIconSize(QSize(30,30))
+		playBtn.setIcon(QIcon('play.icon'))
 		playBtn.clicked.connect(self.playMovie)
-
+		
 		pauseBtn = QPushButton("", self)
 		pauseBtn.setFixedWidth(150)
-		pauseBtn.setIcon(QIcon('pause.icon'))
 		pauseBtn.setIconSize(QSize(30,30))
+		pauseBtn.setIcon(QIcon('pause.icon'))
 		pauseBtn.clicked.connect(self.pauseMovie)
+
 
 		stopBtn = QPushButton("", self)
 		stopBtn.setFixedWidth(150)
 		stopBtn.setIcon(QIcon('stop.icon'))
 		stopBtn.setIconSize(QSize(30,30))
 		stopBtn.clicked.connect(self.stopMovie)
+
+		bwBtn = QPushButton("", self)
+		bwBtn.setFixedWidth(150)
+		bwBtn.setIcon(QIcon('backward.icon'))
+		bwBtn.setIconSize(QSize(30,30))
+		bwBtn.clicked.connect(self.bwMovie)
+
+		fwBtn = QPushButton("", self)
+		fwBtn.setFixedWidth(150)
+		fwBtn.setIcon(QIcon('forward.icon'))
+		fwBtn.setIconSize(QSize(30,30))
+		fwBtn.clicked.connect(self.fwMovie)
+
+		infoBtn = QPushButton("", self)
+		infoBtn.setFixedWidth(150)
+		infoBtn.setIcon(QIcon('info.icon'))
+		infoBtn.setIconSize(QSize(30,30))
+		infoBtn.clicked.connect(self.describeMovie)
 		#HBoxLayout
 		hBox = QHBoxLayout()
 		hBox.setContentsMargins(0,0,0,0)
 		#hBox.addWidget(setupBtn)
+		hBox.addWidget(infoBtn)
+		hBox.addWidget(bwBtn)
 		hBox.addWidget(playBtn)
 		hBox.addWidget(pauseBtn)
+		hBox.addWidget(fwBtn)
 		hBox.addWidget(stopBtn)
 		#VBoxLayout
 		vBox = QVBoxLayout()
 		vBox.addWidget(self.label)
-		#vBox.addWidget(slider)
+		vBox.addWidget(slider)
 		vBox.addLayout(hBox)	
 		vBox.addStretch()
 		self.setLayout(vBox)
+
+	def bwMovie(self):
+		# if self.state == self.PLAYING or self.state == self.READY:
+		# 	self.sendRtspRequest(self.BACKKWARD)
+		pass
+	def fwMovie(self):
+		# if self.state == self.PLAYING or self.state == self.READY:
+		# 	self.sendRtspRequest(self.BACKKWARD)
+		pass
+	def describeMovie(self):
+		pass
 	def closeEvent(self, event):
 		self.handler()
-
 	def stopMovie(self):
 		self.sendRtspRequest(self.TEARDOWN)
 		self.rtspSeq = 0
-		
-		# if self.isLock == 0:
-		# 	self.lock.release()
-		# 	self.label.clear()
-		# 	self.sendRtspRequest(self.SETUP)
+
+		if self.replySent:	
+			self.label.clear()
+			self.sendRtspRequest(self.SETUP)
 
 	def exitClient(self):
 		"""Teardown button handler."""
 		#TODO
 		self.sendRtspRequest(self.TEARDOWN)
+		self.play_t.join()
+		self.recvRtsp_t.join()
 		self.rtspSocket.shutdown(socket.SHUT_RDWR)
 		self.rtspSocket.close()
-		
+		self.rtpSocket.shutdown(socket.SHUT_RDWR)
+		self.rtpSocket.close()
 		self.master.quit() ### close the GUI window
 
 	def pauseMovie(self):
@@ -118,18 +146,20 @@ class Client(QWidget):
 		#TODO
 		if self.state == self.PLAYING:
 			self.sendRtspRequest(self.PAUSE)
+			self.stopListeningAcked = 1
+			
 	
 	def playMovie(self):
 		"""Play button handler."""
 		#TODO
 		#if self.firstPlay == 0:
 		if self.state == self.READY:
-			new_t = threading.Thread(target = self.listenRtp)
-			new_t.start()
-			self.playEvent = threading.Event()
-			self.playEvent.clear()
 			self.sendRtspRequest(self.PLAY)
-	
+			self.play_t = threading.Thread(target = self.listenRtp)
+			self.play_t.start()
+			
+			
+				
 	def listenRtp(self):		
 		"""Listen for RTP packets."""
 		#TODO
@@ -144,11 +174,7 @@ class Client(QWidget):
 						self.frameNbr = current_frame
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
 			except:
-				if self.playEvent.isSet():
-					break
-				if self.teardownAcked == 1:
-					self.rtpSocket.shutdown(socket.SHUT_RDWR)
-					self.rtpSocket.close()
+				if self.stopListeningAcked == 1:
 					break
 					
 	def writeFrame(self, data):
@@ -182,8 +208,10 @@ class Client(QWidget):
 		# TO COMPLETE
 		#-------------
 		self.rtspSeq += 1
+		
 		if requestCode == self.SETUP and self.state == self.INIT:
-			threading.Thread(target=self.recvRtspReply).start()
+			self.recvRtsp_t = threading.Thread(target=self.recvRtspReply)
+			self.recvRtsp_t.start()
 			request = 'SETUP ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nTransport: RTP/UDP; client_port= ' + str(self.rtpPort)
 			self.requestSent = self.SETUP
 		elif requestCode == self.PLAY and self.state == self.READY:
@@ -203,15 +231,15 @@ class Client(QWidget):
 		"""Receive RTSP reply from the server."""
 		#TODO
 		while True:
+			if self.requestSent == self.TEARDOWN:
+				break
 			reply = self.rtspSocket.recv(256)
 			if reply:
 				print('\n--------Reply--------\n')
 				print(reply.decode('utf-8'))
 				print('\n------------------------\n')
 				self.parseRtspReply(reply.decode("utf-8"))
-				
-			if self.requestSent == self.TEARDOWN:
-				break
+			
 			
 
 	def parseRtspReply(self, data):
@@ -230,11 +258,15 @@ class Client(QWidget):
 						self.openRtpPort()
 					if self.requestSent == self.PLAY:
 						self.state = self.PLAYING
+						self.stopListeningAcked = 0
+						
 					if self.requestSent == self.PAUSE:
 						self.state = self.READY
+						self.stopListeningAcked = 1
+												
 					if self.requestSent == self.TEARDOWN:
 						self.state = self.INIT
-						self.teardownAcked = 1
+						self.stopListeningAcked = 1
 
 	
 	def openRtpPort(self):
@@ -256,7 +288,6 @@ class Client(QWidget):
 	def handler(self):
 		"""Handler on explicitly closing the GUI window."""
 		#TODO
-		self.pauseMovie()
 		userInfo = QMessageBox.question(self, 'Confirmation', 'Do you want to close?', QMessageBox.Yes, QMessageBox.No)
 		if userInfo == QMessageBox.Yes:
 			self.exitClient()

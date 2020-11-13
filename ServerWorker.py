@@ -101,11 +101,9 @@ class ServerWorker:
 		elif requestType == self.TEARDOWN:
 				print("processing TEARDOWN\n")
 				self.clientInfo['event'].set()
-				print(self.clientInfo['event'].isSet())
 				self.state = self.INIT
 				self.replyRtsp(self.OK_200, seq[1])
-				# Close the RTP socket
-				self.clientInfo['rtpSocket'].close()
+				
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
