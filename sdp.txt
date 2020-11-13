@@ -1,0 +1,9 @@
+Content-base:movie.Mjpeg
+Content-Type: application/sdp
+Content-Length: 168
+
+v=0
+s=Video streaming
+i=Using RTP and RTSP for video streaming
+e=huan.tran180220@hcmut.edu.vn, loc.buiquang@hcmut.edu.vn, an.onquan@hcmut.edu.vn
+m=video 20001 RTP/UDP

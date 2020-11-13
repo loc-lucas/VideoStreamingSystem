@@ -21,6 +21,7 @@ class Client(QWidget):
 	PLAY = 1
 	PAUSE = 2
 	TEARDOWN = 3
+	DESCRIBE = 4
 	
 	# Initiation..
 	def __init__(self, master, serveraddr, serverport, rtpport, filename):
@@ -117,9 +118,8 @@ class Client(QWidget):
 		# if self.state == self.PLAYING or self.state == self.READY:
 		# 	self.sendRtspRequest(self.BACKKWARD)
 		pass
-
 	def describeMovie(self):
-		pass
+		self.sendRtspRequest(self.DESCRIBE)
 
 	def closeEvent(self, event):
 		reply = QMessageBox.question(
@@ -241,6 +241,9 @@ class Client(QWidget):
 		elif requestCode == self.TEARDOWN:
 			request = 'TEARDOWN ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
 			self.requestSent = self.TEARDOWN
+		elif requestCode == self.DESCRIBE:
+			request = 'DESCRIBE ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+			self.requestSent = self.DESCRIBE
 		else: return
 		self.rtspSocket.send(request.encode())
 		print('\nData sent:\n' + request)

@@ -9,6 +9,7 @@ class ServerWorker:
 	PLAY = 'PLAY'
 	PAUSE = 'PAUSE'
 	TEARDOWN = 'TEARDOWN'
+	DESCRIBE = 'DESCRIBE'
 	
 	INIT = 0
 	READY = 1
@@ -103,7 +104,22 @@ class ServerWorker:
 				self.clientInfo['event'].set()
 				self.state = self.INIT
 				self.replyRtsp(self.OK_200, seq[1])
+		elif requestType == self.DESCRIBE:
+				print("processing DESCRIBE\n")
+				self.replyRtsp(self.OK_200, seq[1])
 				
+				v = 0 #protocol version
+				s = 'Video streaming'
+				i = 'Using RTP and RTSP for video streaming'
+				e = 'huan.tran180220@hcmut.edu.vn, loc.buiquang@hcmut.edu.vn, an.onquan@hcmut.edu.vn'
+				m = 'video ' + str(self.clientInfo['rtpPort']) + ' RTP/UDP'
+
+				sdp1 ='\n\nv=' + str(v) + '\ns=' + s + '\ni=' + i + '\ne=' + e + '\nm=' + m 
+				sdp = 'Content-Base:' + filename + '\nContent-Type: application/sdp' + '\nContent-Length: ' + str(len(sdp1)) + sdp1
+				print(sdp)
+				f = open("sdp.txt","w")
+				f.write(sdp)
+				f.close()					   
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
