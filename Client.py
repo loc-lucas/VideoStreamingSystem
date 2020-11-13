@@ -1,8 +1,10 @@
 from socket import timeout
 from threading import Thread, current_thread
-from PySide2.QtWidgets import QWidget,QPushButton, QMessageBox, QLabel, QApplication, QSlider, QVBoxLayout, QHBoxLayout
+from PySide2.QtWidgets import QWidget,QPushButton, QMessageBox, QLabel
+from PySide2.QtWidgets import QApplication, QSlider, QVBoxLayout, QHBoxLayout
 from PySide2.QtGui import QIcon, QPixmap
 from PySide2.QtCore import Qt,QSize
+from time import time
 from PIL import Image
 import socket, threading, sys, traceback, os
 from RtpPacket import RtpPacket
@@ -16,12 +18,16 @@ class Client(QWidget):
 	READY = 1
 	PLAYING = 2
 	state = INIT
-	
+	#startTime = 0
 	SETUP = 0
 	PLAY = 1
 	PAUSE = 2
 	TEARDOWN = 3
-	GETLIST = 4
+	FORWARD = 4
+	BACKKWARD = 5
+	DESCRIBE = 6
+	GETLIST = 7
+	
 	
 	# Initiation..
 	def __init__(self, master, serveraddr, serverport, rtpport, filename):
@@ -38,7 +44,7 @@ class Client(QWidget):
 		self.connectToServer()
 		# self.getListOfVids()
 		self.frameNbr = 0
-
+		self.totalTime = 0
 		self.replySent = 0
 
 		self.setWindowTitle("Promise")
@@ -88,6 +94,17 @@ class Client(QWidget):
 		fwBtn.setIconSize(QSize(30,30))
 		fwBtn.clicked.connect(self.fwMovie)
 
+		# brBtn = QPushButton("", self)			## print video rate
+		# brBtn.setFixedWidth(150)
+		# brBtn.setIcon(QIcon('forward.icon'))
+		# brBtn.setIconSize(QSize(30,30))
+		# brBtn.clicked.connect(self.videoRate)
+
+		# plBtn = QPushButton("", self)				## print packet loss rate
+		# plBtn.setFixedWidth(150)
+		# plBtn.setIcon(QIcon('forward.icon'))
+		# plBtn.setIconSize(QSize(30,30))
+		# plBtn.clicked.connect(self.rtpLossRate)
 		infoBtn = QPushButton("", self)
 		infoBtn.setFixedWidth(150)
 		infoBtn.setIcon(QIcon('info.icon'))
@@ -96,13 +113,14 @@ class Client(QWidget):
 		#HBoxLayout
 		hBox = QHBoxLayout()
 		hBox.setContentsMargins(0,0,0,0)
-		#hBox.addWidget(setupBtn)
 		hBox.addWidget(infoBtn)
 		hBox.addWidget(bwBtn)
 		hBox.addWidget(playBtn)
-		hBox.addWidget(pauseBtn)
 		hBox.addWidget(fwBtn)
+		hBox.addWidget(pauseBtn)
 		hBox.addWidget(stopBtn)
+		# hBox.addWidget(brBtn)
+		# hBox.addWidget(plBtn)
 		#VBoxLayout
 		vBox = QVBoxLayout()
 		vBox.addWidget(self.label)
@@ -115,17 +133,13 @@ class Client(QWidget):
 	# 	self.sendRtspRequest(self.GETLIST)
 
 	def bwMovie(self):
-		# if self.state == self.PLAYING or self.state == self.READY:
-		# 	self.sendRtspRequest(self.BACKKWARD)
-		pass
+		if self.state == self.PLAYING or self.state == self.READY:
+			self.sendRtspRequest(self.BACKKWARD)
 	def fwMovie(self):
-		# if self.state == self.PLAYING or self.state == self.READY:
-		# 	self.sendRtspRequest(self.BACKKWARD)
-		pass
-
+		if self.state == self.PLAYING or self.state == self.READY:
+			self.sendRtspRequest(self.FORWARD)
 	def describeMovie(self):
-		pass
-
+		self.sendRtspRequest(self.DESCRIBE)
 	def closeEvent(self, event):
 		reply = QMessageBox.question(
 			self,
@@ -141,22 +155,24 @@ class Client(QWidget):
 		
 
 	def stopMovie(self):
-		self.sendRtspRequest(self.TEARDOWN)
-		self.recvRtsp_t.join()
-		self.play_t.join()
-		self.rtspSeq = 0
-		self.sessionId = 0
-		self.requestSent = -1
-		self.stopListeningAcked = 0
-		self.frameNbr = 0	
-		self.label.clear()
-		self.sendRtspRequest(self.SETUP)
+		if (self.requestSent == self.PAUSE and self.state == self.READY) or self.requestSent == self.PLAY:
+			self.sendRtspRequest(self.TEARDOWN)
+			self.play_t.join()
+			self.recvRtsp_t.join()
+			self.rtspSeq = 0
+			self.sessionId = 0
+			self.requestSent = -1
+			self.stopListeningAcked = 0
+			self.frameNbr = 0	
+			self.label.clear()
+			self.sendRtspRequest(self.SETUP)
 
 	def exitClient(self):
 		"""Teardown button handler."""
 		#TODO
 		self.sendRtspRequest(self.TEARDOWN)
-		self.play_t.join()
+		if self.state == self.READY and self.requestSent == self.PAUSE:
+			self.play_t.join()
 		self.recvRtsp_t.join()
 		self.rtspSocket.shutdown(socket.SHUT_RDWR)
 		self.rtspSocket.close()
@@ -169,6 +185,8 @@ class Client(QWidget):
 		#TODO
 		if self.state == self.PLAYING:
 			self.sendRtspRequest(self.PAUSE)
+			self.duration += round(float(time()),2) - self.startTime ## calculate total duration
+			self.startTime = 0						#set start time of the duration to 0
 			self.stopListeningAcked = 1
 			
 	
@@ -177,12 +195,30 @@ class Client(QWidget):
 		#TODO
 		#if self.firstPlay == 0:
 		if self.state == self.READY:
+			self.startTime = round(float(time()),2)		#set start time of the duration when press PLAY
 			self.sendRtspRequest(self.PLAY)
 			self.play_t = threading.Thread(target = self.listenRtp)
 			self.play_t.start()
-			
-			
-				
+	
+	def videoRate(self):
+		"""calculate video rate (bit/s)"""
+		
+		#videoSize = 1 ##  take from the description
+		if self.duration == 0:
+			self.duration = self.videoDuration
+			bitRate = round(float(self.playedSize) / self.duration, 2)
+		else:
+			bitRate = round(float(self.playedSize) / self.duration, 2)
+		print(bitRate)
+		print(self.duration)
+		print(self.playedSize)
+
+	def rtpLossRate(self, totalPacket):
+		"""calculate RTP packet loss rate"""
+		totalPacket = 1
+		lossRate = self.packetLoss / totalPacket
+		print(self.packetLoss)
+
 	def listenRtp(self):		
 		"""Listen for RTP packets."""
 		#TODO
@@ -195,6 +231,11 @@ class Client(QWidget):
 					rtpPacket = RtpPacket() 		## In reality, is the RtpPacket.py the same place as Client.py?
 					rtpPacket.decode(data)
 					current_frame = rtpPacket.seqNum()
+					if current_frame - self.frameNbr > 1 :
+						self.packetLoss += current_frame - self.frameNbr - 1
+					if current_frame == 500:
+						self.videoDuration = round(float(time()),2) - self.startTime - 0.05*2
+
 					if current_frame > self.frameNbr:
 						self.frameNbr = current_frame
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
@@ -205,10 +246,12 @@ class Client(QWidget):
 	def writeFrame(self, data):
 		"""Write the received frame to a temp image file. Return the image file."""
 		#TODO
+
 		file_name = CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT
 		temp_file = open(file_name, 'wb') ## open in binary format and write
 		temp_file.write(data)
 		temp_file.close()
+		self.playedSize += os.path.getsize(file_name)	## total played video size
 		return file_name
 
 	def updateMovie(self, imageFile):
@@ -239,6 +282,9 @@ class Client(QWidget):
 			self.recvRtsp_t.start()
 			request = 'SETUP ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nTransport: RTP/UDP; client_port= ' + str(self.rtpPort)
 			self.requestSent = self.SETUP
+			self.playedSize = 0
+			self.duration = 0
+			self.packetLoss = 0
 		elif requestCode == self.PLAY and self.state == self.READY:
 			request = 'PLAY ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
 			self.requestSent =  self.PLAY
@@ -248,6 +294,15 @@ class Client(QWidget):
 		elif requestCode == self.TEARDOWN:
 			request = 'TEARDOWN ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
 			self.requestSent = self.TEARDOWN
+		elif requestCode == self.BACKKWARD:
+			request = 'BACKWARD ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+			self.requestSent = self.BACKKWARD
+		elif requestCode == self.FORWARD:
+			request = 'FORWARD ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+			self.requestSent = self.FORWARD
+		elif requestCode == self.DESCRIBE:
+			request = 'DESCRIBE ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+			self.requestSent = self.DESCRIBE
 		else: return
 		self.rtspSocket.send(request.encode())
 		print('\nData sent:\n' + request)
@@ -260,10 +315,13 @@ class Client(QWidget):
 				break
 			reply = self.rtspSocket.recv(256)
 			if reply:
-				print('\n--------Reply--------\n')
-				print(reply.decode('utf-8'))
-				print('\n------------------------\n')
-				self.parseRtspReply(reply.decode("utf-8"))
+				if reply.decode('utf-8')[:2] == 'tt':
+					self.totalTime = reply.decode('utf-8')[2:]
+				else:	
+					print('\n--------Reply--------\n')
+					print(reply.decode('utf-8'))
+					print('\n------------------------\n')
+					self.parseRtspReply(reply.decode("utf-8"))
 			
 			
 
@@ -305,7 +363,7 @@ class Client(QWidget):
 		self.rtpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)		
 		# Set the timeout value of the socket to 0.5sec
 		# ...
-		self.rtpSocket.settimeout(0.5)	
+		self.rtpSocket.settimeout(5)	
 		try:
 			self.rtpSocket.bind(('', self.rtpPort))
 		except:

@@ -1,0 +1,13 @@
+Content-Base:movie.Mjpeg
+Content-Type:application/sdp
+Content-Length:272
+
+v=0
+o=DESKTOP-D5QIFDO
+s=Video streaming
+i=Using RTP and RTSP for video streaming
+e=huan.tran180220@hcmut.edu.vn, loc.buiquang@hcmut.edu.vn, an.onquan@hcmut.edu.vn
+t=2020-11-14 03:01:07.080961
+m=video 2001 RTP/UDP
+a=control:streamid=490411
+a=mimetype:string;"video/MJPEG"
