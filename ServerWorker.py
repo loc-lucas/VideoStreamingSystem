@@ -1,6 +1,6 @@
 from random import randint
 import sys, traceback, threading, socket
-
+from datetime import datetime
 from VideoStream import VideoStream
 from RtpPacket import RtpPacket
 
@@ -9,6 +9,9 @@ class ServerWorker:
 	PLAY = 'PLAY'
 	PAUSE = 'PAUSE'
 	TEARDOWN = 'TEARDOWN'
+	FORWARD = 'FORWARD'
+	BACKWARD = 'BACKWARD'
+	DESCRIBE = 'DESCRIBE'
 	
 	INIT = 0
 	READY = 1
@@ -58,8 +61,11 @@ class ServerWorker:
 				print("processing SETUP\n")
 				
 				try:
+					#print(filename)
 					self.clientInfo['videoStream'] = VideoStream(filename)
 					self.state = self.READY
+					self.clientInfo['videoStream'].totalFrame()
+					
 				except IOError:
 					self.replyRtsp(self.FILE_NOT_FOUND_404, seq[1])
 				
@@ -68,8 +74,10 @@ class ServerWorker:
 				
 				# Send RTSP reply
 				self.replyRtsp(self.OK_200, seq[1])
-				
+				totalTime = ("tt" + str(self.clientInfo['videoStream'].totalTime())).encode()
+				self.clientInfo['rtspSocket'][0].send(totalTime)
 				# Get the RTP/UDP port from the last line
+
 				self.clientInfo['rtpPort'] = request[2].split(' ')[3]
 		
 		# Process PLAY request 		
@@ -81,7 +89,7 @@ class ServerWorker:
 				# Create a new socket for RTP/UDP
 				self.clientInfo["rtpSocket"] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 				self.replyRtsp(self.OK_200, seq[1])
-				
+
 				# Create a new thread and start sending RTP packets
 				self.clientInfo['event'] = threading.Event()
 				self.clientInfo['worker'] = threading.Thread(target=self.sendRtp) 
@@ -100,12 +108,47 @@ class ServerWorker:
 		# Process TEARDOWN request
 		elif requestType == self.TEARDOWN:
 				print("processing TEARDOWN\n")
-				self.clientInfo['event'].set()
-				print(self.clientInfo['event'].isSet())
+				try:
+					self.clientInfo['event'].set()
+				except: pass
 				self.state = self.INIT
 				self.replyRtsp(self.OK_200, seq[1])
 				# Close the RTP socket
-				self.clientInfo['rtpSocket'].close()
+				try:
+					self.clientInfo['rtpSocket'].close()
+				except: pass
+		
+		# Process FORWARD request
+		elif requestType == self.FORWARD:
+			if self.state == self.PLAYING or self.state == self.READY:
+				print("processing FORWARD\n")
+				self.clientInfo['videoStream'].moveForward()
+				self.replyRtsp(self.OK_200, seq[1])
+
+		# Process BACKWARDvrequest
+		elif requestType == self.BACKWARD:
+			if self.state == self.PLAYING or self.state == self.READY:
+				print("processing BACKWARD\n")
+				self.clientInfo['videoStream'].moveBackward()
+				self.replyRtsp(self.OK_200, seq[1])
+		elif requestType == self.DESCRIBE:
+				print("processing DESCRIBE\n")
+				self.replyRtsp(self.OK_200, seq[1])
+				
+				v = 0 #protocol version
+				o = socket.gethostname()
+				s = 'Video streaming'
+				i = 'Using RTP and RTSP for video streaming'
+				e = 'huan.tran180220@hcmut.edu.vn, loc.buiquang@hcmut.edu.vn, an.onquan@hcmut.edu.vn'
+				t = datetime.now()
+				m = 'video ' + str(self.clientInfo['rtpPort']) + ' RTP/UDP'
+				a = 'control:streamid=' + str(self.clientInfo['session']) + '\na=mimetype:string;\"video/MJPEG\"'
+				sdp1 ='\n\nv=' + str(v) + '\no=' + o + '\ns=' + s + '\ni=' + i + '\ne=' + e + '\nt=' + str(t) +'\nm=' + m + '\na=' + a
+				sdp = 'Content-Base:' + filename + '\nContent-Type:application/sdp' + '\nContent-Length:' + str(len(sdp1)) + sdp1
+				print(sdp)
+				f = open("sdp.txt","w")
+				f.write(sdp)
+				f.close()					   
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
