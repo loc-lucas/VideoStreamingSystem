@@ -42,6 +42,7 @@ class Client(QWidget):
 		self.requestSent = -1
 		self.stopListeningAcked = 0
 		self.connectToServer()
+		self.openRtpPort()
 		# self.getListOfVids()
 		self.frameNbr = 0
 		self.totalTime = 0
@@ -186,8 +187,9 @@ class Client(QWidget):
 		if self.state == self.PLAYING:
 			self.sendRtspRequest(self.PAUSE)
 			self.duration += round(float(time()),2) - self.startTime ## calculate total duration
-			self.startTime = 0						#set start time of the duration to 0
-			self.stopListeningAcked = 1
+			self.startTime = 0	#set start time of the duration to 0
+			#self.stopListeningAcked = 1
+			self.play_t.join()	
 			
 	
 	def playMovie(self):
@@ -195,14 +197,13 @@ class Client(QWidget):
 		#TODO
 		#if self.firstPlay == 0:
 		if self.state == self.READY:
-			self.startTime = round(float(time()),2)		#set start time of the duration when press PLAY
+			self.startTime = round(float(time()),2)	#set start time of the duration when press PLAY
 			self.sendRtspRequest(self.PLAY)
 			self.play_t = threading.Thread(target = self.listenRtp)
 			self.play_t.start()
 	
 	def videoRate(self):
 		"""calculate video rate (bit/s)"""
-		
 		#videoSize = 1 ##  take from the description
 		if self.duration == 0:
 			self.duration = self.videoDuration
@@ -338,16 +339,13 @@ class Client(QWidget):
 				if int(lines[0].split(' ')[1]) == 200:
 					if self.requestSent == self.SETUP:
 						self.state = self.READY
-						self.openRtpPort()
 					if self.requestSent == self.PLAY:
 						self.stopListeningAcked = 0
 						self.state = self.PLAYING
-						self.stopListeningAcked = 0
-						
+						self.stopListeningAcked = 0	
 					if self.requestSent == self.PAUSE:
 						self.state = self.READY
-						self.stopListeningAcked = 1
-												
+						self.stopListeningAcked = 1					
 					if self.requestSent == self.TEARDOWN:
 						self.state = self.INIT
 						self.stopListeningAcked = 1
