@@ -7,6 +7,7 @@ from PySide2.QtCore import Qt,QSize
 from time import time
 from PIL import Image
 import socket, threading, sys, traceback, os
+import imageio
 from RtpPacket import RtpPacket
 
 CACHE_FILE_NAME = "cache-"
@@ -127,6 +128,7 @@ class Client(QWidget):
 	def bwMovie(self):
 		if self.state == self.PLAYING or self.state == self.READY:
 			self.sendRtspRequest(self.BACKKWARD)
+
 	def fwMovie(self):
 		if self.state == self.PLAYING or self.state == self.READY:
 			self.sendRtspRequest(self.FORWARD)
@@ -188,7 +190,8 @@ class Client(QWidget):
 		"""calculate RTP packet loss rate"""
 		totalPacket = 1
 		lossRate = self.packetLoss / totalPacket
-		print(self.packetLoss)
+		# print(self.packetLoss)
+		return lossRate
 
 	def listenRtp(self):		
 		"""Listen for RTP packets."""
@@ -203,8 +206,8 @@ class Client(QWidget):
 					if current_frame - self.frameNbr > 1 :
 						self.packetLoss += current_frame - self.frameNbr - 1
 					if current_frame == 500:
+						print(rtpPacket.header)
 						self.videoDuration = round(float(time()),2) - self.startTime - 0.05*2
-
 					if current_frame > self.frameNbr:
 						self.frameNbr = current_frame
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
@@ -215,15 +218,15 @@ class Client(QWidget):
 					self.rtpSocket.shutdown(socket.SHUT_RDWR)
 					self.rtpSocket.close()
 					break
-					
+				
 	def writeFrame(self, data):
 		"""Write the received frame to a temp image file. Return the image file."""
 		#TODO
-
 		file_name = CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT
 		temp_file = open(file_name, 'wb') ## open in binary format and write
 		temp_file.write(data)
 		temp_file.close()
+		#imageio.imwrite(file_name, np.array(data[3:]).reshape(data[0],data[1],3))
 		self.playedSize += os.path.getsize(file_name)	## total played video size
 		return file_name
 

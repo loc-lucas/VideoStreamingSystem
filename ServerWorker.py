@@ -1,6 +1,7 @@
 from random import randint
 import sys, traceback, threading, socket
-
+import imageio
+import numpy as np
 from VideoStream import VideoStream
 from RtpPacket import RtpPacket
 
@@ -27,7 +28,6 @@ class ServerWorker:
 		self.clientInfo = clientInfo
 		
 	def run(self):
-		print(str(self.clientInfo))
 		new_t = threading.Thread(target=self.recvRtspRequest)
 		new_t.start()
 	
@@ -138,6 +138,11 @@ class ServerWorker:
 				
 			data = self.clientInfo['videoStream'].nextFrame()
 			if data: 
+				# width = data.read(4)
+				# heigth = data.read(4)
+				# three = data.read(4)
+				# data = data.read()
+				# imageio.imwrite('chelsea.jpg', np.array(data).reshape(width,heigth,three))
 				frameNumber = self.clientInfo['videoStream'].frameNbr()
 				try:
 					address = self.clientInfo['rtspSocket'][1][0]

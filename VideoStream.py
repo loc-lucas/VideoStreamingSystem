@@ -1,3 +1,5 @@
+import imageio
+
 class VideoStream:
 	def __init__(self, filename):
 		self.filename = filename
@@ -9,9 +11,31 @@ class VideoStream:
 		self.frameNum = 0
 		self.tmpFrameNum = 0
 		self.frameIdx = 0
+
+	def totalFrame2(self, filename):
+		self.videoData = imageio.get_reader('movie4.mp4')
+		frame = []
+		for i in self.videoData:
+			#print(i)
+			frame.append(i)
+		self.tmpFrameNum = len(frame)
 		
+		return self.tmpFrameNum
+
+	def totalTime2(self):
+		return float(self.tmpFrameNum / 20)
+
+	def nextFrame2(self):
+		self.frameIdx += 1
+		self.frameNum += 1
+		data = self.videoData.get_data(self.frameIdx)
+		
+		return np.array(data.shape).tobytes() + data.tobytes()
+
+
+#-------------------------------------------------Mjpeg-------------------------------------------------
 	def nextFrame(self):
-		"""Get next frame."""
+		"Get next frame"
 		data = self.file.read(5) # Get the framelength from the first 5 bits
 		self.frameIdx += 1
 		if data: 
@@ -36,7 +60,6 @@ class VideoStream:
 				return self.tmpFrameNum			#total frame number
 	
 	def totalTime(self):
-		print(self.frameTrack[500])
 		return float(self.tmpFrameNum / 20)
 		
 	def moveBackward(self):	#move backward 5s
@@ -59,7 +82,7 @@ class VideoStream:
 		self.file.seek(int(index, 16), 0)
 
 	def frameNbr(self):
-		"""Get frame number."""
+		"Get frame number"
 		return self.frameNum
 	
 	
