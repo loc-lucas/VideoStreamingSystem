@@ -1,31 +1,35 @@
 import imageio
 import io
-import numpy as np
-im = imageio.get_reader('movie2.mjpeg', 'ffmpeg')
-data = im.get_data(0)
-buffer = io.BytesIO()
-imageio.imwrite(buffer, data, format='JPEG')
-file_name = 'chelsea.jpg'
-# print(buffer.getvalue())
+
+class VideoStream:
+    def __init__(self, filename):
+        self.filename = filename
+        try:
+            self.file = imageio.get_reader(filename, 'ffmpeg')
+        except:
+            raise IOError
+        self.frameNum = 0
+        self.currFrameIdx = 0
+        
+    def nextFrame(self):
+        """Get next frame."""
+        data = self.file.get_data(self.currFrameIdx)
+        self.currFrameIdx += 1
+        self.frameNum += 1
+        buffer = io.BytesIO()
+        imageio.imwrite(buffer, data, format='JPEG')
+        return buffer.getvalue()
+        
+    def frameNbr(self):
+        """Get frame number."""
+        return self.frameNum
+
+var = VideoStream('movie2.mjpeg')
+data = var.nextFrame()
+file_name = 'arsenal.jpg'
 temp_file = open(file_name, 'wb') ## open in binary format and write
-temp_file.write(buffer.getvalue())
+temp_file.write(data)
 temp_file.close()
-
-# frame = []
-# for i in im:
-#     frame.append(i)
-# print(len(im))
-#imageio.imwrite('chelsea.jpg', im.get_data(200))
-
-#pic = list(im.get_data(0).flatten())
-
-#print(l.shape)
-# l = bytearray(np.array(l).tobytes())
-# l = np.array(l).reshape(368,640,3)
-# print(l)
-
-# l = l.reshape(368,640,3)
-# a.tobytes()
-# print(l)
-
-#print(im.get_length())
+#imageio.imwrite(file_name, np.array(data[3:]).reshape(data[0],data[1],3))
+	
+	

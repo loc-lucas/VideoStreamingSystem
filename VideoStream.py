@@ -1,19 +1,19 @@
 import imageio
-
+import io
 class VideoStream:
 	def __init__(self, filename):
 		self.filename = filename
 		try:
 			self.file = open(filename, 'rb')
 			self.tmpFile = open(filename, 'rb')
+			self.videoData = imageio.get_reader(filename, 'ffmpeg')
 		except:
 			raise IOError
 		self.frameNum = 0
 		self.tmpFrameNum = 0
 		self.frameIdx = 0
 
-	def totalFrame2(self, filename):
-		self.videoData = imageio.get_reader('movie4.mp4')
+	def totalFrame2(self, filename):	
 		frame = []
 		for i in self.videoData:
 			#print(i)
@@ -26,14 +26,29 @@ class VideoStream:
 		return float(self.tmpFrameNum / 20)
 
 	def nextFrame2(self):
+		if self.frameIdx >= self.tmpFrameNum:
+			return None
+		data = self.videoData.get_data(self.frameIdx)
 		self.frameIdx += 1
 		self.frameNum += 1
-		data = self.videoData.get_data(self.frameIdx)
-		
-		return np.array(data.shape).tobytes() + data.tobytes()
+		buffer = io.BytesIO()
+		imageio.imwrite(buffer, data, format = 'JPEG')
+		return buffer.getvalue()
 
+	def moveForward2(self):		## move forward 5s - set frameIdx next to 100 frames
+		if self.frameIdx > self.tmpFrameNum - 101:
+			self.frameIdx = self.tmpFrameNum - 1
+		else:
+			self.frameIdx += 100
+
+	def moveBackward2(self):	## move backward 5s - set frameIdx back to 100 frames
+		if self.frameIdx < 100:
+			self.frameIdx = 0	
+		else:
+			self.frameIdx -= 100
 
 #-------------------------------------------------Mjpeg-------------------------------------------------
+
 	def nextFrame(self):
 		"Get next frame"
 		data = self.file.read(5) # Get the framelength from the first 5 bits
