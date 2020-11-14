@@ -1,14 +1,13 @@
 from socket import timeout
 from threading import Thread, current_thread
 from PySide2.QtWidgets import QWidget,QPushButton, QMessageBox, QLabel
-from PySide2.QtWidgets import QApplication, QSlider, QVBoxLayout, QHBoxLayout
+from PySide2.QtWidgets import QApplication, QSlider, QVBoxLayout, QHBoxLayout, QSizePolicy
 from PySide2.QtGui import QIcon, QPixmap
 from PySide2.QtCore import Qt,QSize
 from time import time
 from PIL import Image
 import socket, threading, sys, traceback, os
 from RtpPacket import RtpPacket
-
 CACHE_FILE_NAME = "cache-"
 CACHE_FILE_EXT = ".jpg"
 
@@ -17,6 +16,7 @@ class Client(QWidget):
 	INIT = 0
 	READY = 1
 	PLAYING = 2
+	SWITCH = 3
 	state = INIT
 	#startTime = 0
 	SETUP = 0
@@ -27,7 +27,6 @@ class Client(QWidget):
 	BACKKWARD = 5
 	DESCRIBE = 6
 	GETLIST = 7
-	
 	
 	# Initiation..
 	def __init__(self, master, serveraddr, serverport, rtpport, filename):
@@ -47,16 +46,34 @@ class Client(QWidget):
 		self.frameNbr = 0
 		self.totalTime = 0
 		self.replySent = 0
-
-		self.setWindowTitle("Promise")
-		self.label = QLabel(self)
-		self.label.setFixedSize(800,450)
-		self.label.setStyleSheet("QWidget {background-color: rgba(0,0,0,1);}")
-		self.label.setAlignment(Qt.AlignCenter)
-		self.setGeometry(400,300,800,550)
+		self.listVideo =''
+		
 		self.init_ui()
 
 	def init_ui(self):
+		self.setWindowTitle("Promise")
+		self.setGeometry(800,450,800,450)
+		#Video screen
+		self.videoScreen = QLabel(self)
+		self.videoScreen.setMinimumSize(800,450)
+		self.videoScreen.setStyleSheet("QWidget {background-color: rgba(0,0,0,1);}")
+		self.videoScreen.setAlignment(Qt.AlignCenter)
+		self.videoScreen.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+		#Video List
+		# self.listVideo = QLabel(self)
+		# self.listVideo.setBaseSize(120,300)
+		# self.listVideo.setStyleSheet("QWidget {background-color: rgba(255,255,255,1); border: 1px solid rgba(188, 188, 188, 250);}")
+		# self.listVideo.setAlignment(Qt.AlignVCenter)
+		
+		# self.listVideoTitle = QLabel(self)
+		# self.listVideoTitle.setStyleSheet("QWidget {background-color: rgba(255,255,255,1); border: 1px solid rgba(188, 188, 188, 250);}")
+		# self.listVideoTitle.setBaseSize(120,50)
+		# self.listVideoTitle.setAlignment(Qt.AlignCenter)
+		# self.listVideoTitle.setText("Video List")	
+		# self.listVideoTitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+		# self.attrVideo = QLabel(self)
+		# self.attrVideo.setBaseSize(120,100)
+		# self.attrVideo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 		#Apps icon
 		appIcon = QIcon("image.icon")
 		self.setWindowIcon(appIcon)
@@ -65,52 +82,47 @@ class Client(QWidget):
 		slider.setRange(0,self.frameNbr)
 		#Create buttons
 		playBtn = QPushButton("", self)
-		playBtn.setFixedWidth(150)
 		playBtn.setIconSize(QSize(30,30))
 		playBtn.setIcon(QIcon('play.icon'))
 		playBtn.clicked.connect(self.playMovie)
+		playBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+		playBtn.setBaseSize(100,50)
 		
 		pauseBtn = QPushButton("", self)
-		pauseBtn.setFixedWidth(150)
 		pauseBtn.setIconSize(QSize(30,30))
 		pauseBtn.setIcon(QIcon('pause.icon'))
 		pauseBtn.clicked.connect(self.pauseMovie)
-
+		pauseBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 		stopBtn = QPushButton("", self)
-		stopBtn.setFixedWidth(150)
 		stopBtn.setIcon(QIcon('stop.icon'))
 		stopBtn.setIconSize(QSize(30,30))
 		stopBtn.clicked.connect(self.stopMovie)
+		stopBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 		bwBtn = QPushButton("", self)
-		bwBtn.setFixedWidth(150)
 		bwBtn.setIcon(QIcon('backward.icon'))
 		bwBtn.setIconSize(QSize(30,30))
 		bwBtn.clicked.connect(self.bwMovie)
+		bwBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 		fwBtn = QPushButton("", self)
-		fwBtn.setFixedWidth(150)
 		fwBtn.setIcon(QIcon('forward.icon'))
 		fwBtn.setIconSize(QSize(30,30))
 		fwBtn.clicked.connect(self.fwMovie)
+		fwBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-		# brBtn = QPushButton("", self)			## print video rate
-		# brBtn.setFixedWidth(150)
-		# brBtn.setIcon(QIcon('forward.icon'))
-		# brBtn.setIconSize(QSize(30,30))
-		# brBtn.clicked.connect(self.videoRate)
-
-		# plBtn = QPushButton("", self)				## print packet loss rate
-		# plBtn.setFixedWidth(150)
-		# plBtn.setIcon(QIcon('forward.icon'))
-		# plBtn.setIconSize(QSize(30,30))
-		# plBtn.clicked.connect(self.rtpLossRate)
 		infoBtn = QPushButton("", self)
-		infoBtn.setFixedWidth(150)
 		infoBtn.setIcon(QIcon('info.icon'))
 		infoBtn.setIconSize(QSize(30,30))
 		infoBtn.clicked.connect(self.describeMovie)
+		infoBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+		
+		chooseVideoBtn = QPushButton("", self)
+		chooseVideoBtn.setIcon(QIcon('info.icon'))
+		chooseVideoBtn.setIconSize(QSize(30,30))
+		chooseVideoBtn.clicked.connect(self.listMovie)
+		chooseVideoBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 		#HBoxLayout
 		hBox = QHBoxLayout()
 		hBox.setContentsMargins(0,0,0,0)
@@ -120,13 +132,20 @@ class Client(QWidget):
 		hBox.addWidget(fwBtn)
 		hBox.addWidget(pauseBtn)
 		hBox.addWidget(stopBtn)
-		# hBox.addWidget(brBtn)
-		# hBox.addWidget(plBtn)
+		listVideoBox = QVBoxLayout()
+		# listVideoBox.addWidget(self.listVideoTitle)
+		# listVideoBox.addWidget(self.listVideo)
+		# listVideoBox.addWidget(self.attrVideo)
+		videoBox = QHBoxLayout()
+		videoBox.setContentsMargins(0,0,0,0)
+		videoBox.addWidget(self.videoScreen)
+		videoBox.addLayout(listVideoBox)
 		#VBoxLayout
 		vBox = QVBoxLayout()
-		vBox.addWidget(self.label)
+		vBox.addLayout(videoBox)
 		vBox.addWidget(slider)
-		vBox.addLayout(hBox)	
+		vBox.addLayout(hBox)
+		vBox.addWidget(chooseVideoBtn)	
 		vBox.addStretch()
 		self.setLayout(vBox)
 
@@ -141,6 +160,11 @@ class Client(QWidget):
 			self.sendRtspRequest(self.FORWARD)
 	def describeMovie(self):
 		self.sendRtspRequest(self.DESCRIBE)
+		f = open("sdp.txt","w")
+		f.write(self.sdp)
+		f.close()
+	def listMovie(self):
+		self.sendRtspRequest(self.GETLIST)
 	def closeEvent(self, event):
 		reply = QMessageBox.question(
 			self,
@@ -165,7 +189,7 @@ class Client(QWidget):
 			self.requestSent = -1
 			self.stopListeningAcked = 0
 			self.frameNbr = 0	
-			self.label.clear()
+			self.videoScreen.clear()
 			self.sendRtspRequest(self.SETUP)
 
 	def exitClient(self):
@@ -179,8 +203,7 @@ class Client(QWidget):
 		self.rtspSocket.close()
 		self.rtpSocket.shutdown(socket.SHUT_RDWR)
 		self.rtpSocket.close()
-		self.master.quit() ### close the GUI window
-
+		self.master.quit()
 	def pauseMovie(self):
 		"""Pause button handler."""
 		#TODO
@@ -219,6 +242,7 @@ class Client(QWidget):
 		totalPacket = 1
 		lossRate = self.packetLoss / totalPacket
 		print(self.packetLoss)
+		print(lossRate)
 
 	def listenRtp(self):		
 		"""Listen for RTP packets."""
@@ -257,9 +281,10 @@ class Client(QWidget):
 
 	def updateMovie(self, imageFile):
 		self.pixmap = QPixmap(imageFile)
-		w = self.label.width()
-		h = self.label.height()
-		self.label.setPixmap(self.pixmap.scaled(w, h, Qt.KeepAspectRatio))
+		w = self.width()
+		h = self.height()
+
+		self.videoScreen.setPixmap(self.pixmap.scaled(w,h,Qt.KeepAspectRatio))
 
 	def connectToServer(self):
 		"""Connect to the Server. Start a new RTSP/TCP session."""
@@ -304,6 +329,9 @@ class Client(QWidget):
 		elif requestCode == self.DESCRIBE:
 			request = 'DESCRIBE ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
 			self.requestSent = self.DESCRIBE
+		elif requestCode == self.GETLIST:
+			request = 'GETLIST ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+			self.requestSent = self.GETLIST
 		else: return
 		self.rtspSocket.send(request.encode())
 		print('\nData sent:\n' + request)
@@ -314,15 +342,19 @@ class Client(QWidget):
 		while True:
 			if self.requestSent == self.TEARDOWN:
 				break
-			reply = self.rtspSocket.recv(256)
+			reply = self.rtspSocket.recv(512).decode('utf-8')
 			if reply:
-				if reply.decode('utf-8')[:2] == 'tt':
-					self.totalTime = reply.decode('utf-8')[2:]
-				else:	
+				if reply[:2] == 'tt':
+					self.totalTime = reply[2:]
+				elif reply[:2] == 'cc':
+					self.sdp = reply[2:]
+				elif reply[:2] == 'lv':
+					self.listVideo = reply[2:]
+				else:
 					print('\n--------Reply--------\n')
-					print(reply.decode('utf-8'))
+					print(reply)
 					print('\n------------------------\n')
-					self.parseRtspReply(reply.decode("utf-8"))
+					self.parseRtspReply(reply)
 			
 			
 
@@ -345,10 +377,16 @@ class Client(QWidget):
 						self.stopListeningAcked = 0	
 					if self.requestSent == self.PAUSE:
 						self.state = self.READY
-						self.stopListeningAcked = 1					
+						self.stopListeningAcked = 1
 					if self.requestSent == self.TEARDOWN:
 						self.state = self.INIT
 						self.stopListeningAcked = 1
+					if self.requestSent == self.DESCRIBE:
+						sdp = open("sdp.txt","r")
+						lines = sdp.readlines()
+						for line in lines:
+							line = line.replace("\n","")
+							print(line)
 
 	
 	def openRtpPort(self):

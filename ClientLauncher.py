@@ -12,7 +12,7 @@ if __name__ == "__main__":
 	myApp = QApplication(sys.argv)
 
 	# Create a new client
-	fileName = 'movie.Mjpeg'
+	fileName = 'movie1.Mjpeg'
 	app = Client(myApp, serverAddr, serverPort, rtpPort, fileName)
 	app.show()
 	myApp.exec_()
