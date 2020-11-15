@@ -23,7 +23,6 @@ class ServerWorker:
 	CON_ERR_500 = 2
 	
 	clientInfo = {}
-	videoList = {}
 	videoListName = []
 
 
@@ -138,17 +137,16 @@ class ServerWorker:
 				
 				v = 0 #protocol version
 				s = 'Video streaming by using RTP and RTSP protocol'
-				e = 'huan.tran180220@hcmut.edu.vn, loc.buiquang@hcmut.edu.vn, an.onquan@hcmut.edu.vn'
 				t = datetime.now()
 				m = 'video ' + str(self.clientInfo['rtpPort']) + ' RTP/UDP'
 				a = 'control:streamid=' + str(self.clientInfo['session']) + '\na=mimetype:string;\"video/MJPEG\"'
-				sdp1 ='\n\nv=' + str(v) + '\ns=' + s + '\ne=' + e + '\nt=' + str(t) +'\nm=' + m + '\na=' + a
+				sdp1 ='\n\nv=' + str(v) + '\ns=' + s + '\nt=' + str(t) +'\nm=' + m + '\na=' + a
 				sdp = 'cc' + 'Content-Base:' + filename + '\nContent-Type:application/sdp' + '\nContent-Length:' + str(len(sdp1)) + sdp1
 				self.clientInfo['rtspSocket'][0].send(sdp.encode())				  
 		elif requestType == self.GETLIST:
 				print("processing GETLIST\n")
 				self.replyRtsp(self.OK_200, seq[1]) 
-				jsonFile = open("videoList.json","r")
+				jsonFile = open("videoList.txt","r")
 				output = ''
 				for line in jsonFile.readlines():
 					output += line

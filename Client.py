@@ -10,7 +10,7 @@ import socket, threading, sys, traceback, os
 from RtpPacket import RtpPacket
 CACHE_FILE_NAME = "cache-"
 CACHE_FILE_EXT = ".jpg"
-
+import json
 	
 class Client(QWidget):
 	INIT = 0
@@ -46,7 +46,7 @@ class Client(QWidget):
 		self.frameNbr = 0
 		self.totalTime = 0
 		self.replySent = 0
-		self.listVideo =''
+		self.listVideo =[]
 		
 		self.init_ui()
 
@@ -118,11 +118,11 @@ class Client(QWidget):
 		infoBtn.clicked.connect(self.describeMovie)
 		infoBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 		
-		chooseVideoBtn = QPushButton("", self)
-		chooseVideoBtn.setIcon(QIcon('info.icon'))
-		chooseVideoBtn.setIconSize(QSize(30,30))
-		chooseVideoBtn.clicked.connect(self.listMovie)
-		chooseVideoBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+		# chooseVideoBtn = QPushButton("", self)
+		# chooseVideoBtn.setIcon(QIcon('info.icon'))
+		# chooseVideoBtn.setIconSize(QSize(30,30))
+		# chooseVideoBtn.clicked.connect(self.listMovie)
+		# chooseVideoBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 		#HBoxLayout
 		hBox = QHBoxLayout()
 		hBox.setContentsMargins(0,0,0,0)
@@ -132,20 +132,20 @@ class Client(QWidget):
 		hBox.addWidget(fwBtn)
 		hBox.addWidget(pauseBtn)
 		hBox.addWidget(stopBtn)
-		listVideoBox = QVBoxLayout()
+		# listVideoBox = QVBoxLayout()
 		# listVideoBox.addWidget(self.listVideoTitle)
 		# listVideoBox.addWidget(self.listVideo)
 		# listVideoBox.addWidget(self.attrVideo)
 		videoBox = QHBoxLayout()
 		videoBox.setContentsMargins(0,0,0,0)
 		videoBox.addWidget(self.videoScreen)
-		videoBox.addLayout(listVideoBox)
+		# videoBox.addLayout(listVideoBox)
 		#VBoxLayout
 		vBox = QVBoxLayout()
 		vBox.addLayout(videoBox)
 		vBox.addWidget(slider)
 		vBox.addLayout(hBox)
-		vBox.addWidget(chooseVideoBtn)	
+		# vBox.addWidget(chooseVideoBtn)	
 		vBox.addStretch()
 		self.setLayout(vBox)
 
@@ -160,11 +160,10 @@ class Client(QWidget):
 			self.sendRtspRequest(self.FORWARD)
 	def describeMovie(self):
 		self.sendRtspRequest(self.DESCRIBE)
-		f = open("sdp.txt","w")
-		f.write(self.sdp)
-		f.close()
-	def listMovie(self):
-		self.sendRtspRequest(self.GETLIST)
+	# def listMovie(self):
+	# 	self.sendRtspRequest(self.GETLIST)
+	# 	print(self.listVideo)
+		
 	def closeEvent(self, event):
 		reply = QMessageBox.question(
 			self,
@@ -250,7 +249,7 @@ class Client(QWidget):
 		while True:
 			print("ack = ", self.stopListeningAcked)
 			try:
-				print(threading.active_count())
+				#print(threading.active_count())
 				data = self.rtpSocket.recv(20480)   ## Why 20480?
 				if data:
 					rtpPacket = RtpPacket() 		## In reality, is the RtpPacket.py the same place as Client.py?
@@ -329,9 +328,9 @@ class Client(QWidget):
 		elif requestCode == self.DESCRIBE:
 			request = 'DESCRIBE ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
 			self.requestSent = self.DESCRIBE
-		elif requestCode == self.GETLIST:
-			request = 'GETLIST ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
-			self.requestSent = self.GETLIST
+		# elif requestCode == self.GETLIST:
+		# 	request = 'GETLIST ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+		# 	self.requestSent = self.GETLIST
 		else: return
 		self.rtspSocket.send(request.encode())
 		print('\nData sent:\n' + request)
@@ -342,51 +341,56 @@ class Client(QWidget):
 		while True:
 			if self.requestSent == self.TEARDOWN:
 				break
-			reply = self.rtspSocket.recv(512).decode('utf-8')
+			reply = self.rtspSocket.recv(256).decode('utf-8')
 			if reply:
 				if reply[:2] == 'tt':
-					self.totalTime = reply[2:]
+					self.parseRtspReply(reply[2:])
 				elif reply[:2] == 'cc':
-					self.sdp = reply[2:]
-				elif reply[:2] == 'lv':
-					self.listVideo = reply[2:]
+					self.parseRtspReply(reply[2:])
+				# elif reply[:2] == 'lv':
+				# 	self.parseRtspReply(reply[2:])
 				else:
 					print('\n--------Reply--------\n')
 					print(reply)
 					print('\n------------------------\n')
 					self.parseRtspReply(reply)
 			
-			
-
 	def parseRtspReply(self, data):
 		"""Parse the RTSP reply from the server."""
 		#TODO
-		lines = data.split('\n')
-		seqNum = int(lines[1].split(' ')[1])
-		if seqNum == self.rtspSeq:
-			session = int(lines[2].split(' ')[1])
-			if self.sessionId == 0:
-				self.sessionId = session
-			if self.sessionId == session:
-				if int(lines[0].split(' ')[1]) == 200:
-					if self.requestSent == self.SETUP:
-						self.state = self.READY
-					if self.requestSent == self.PLAY:
-						self.stopListeningAcked = 0
-						self.state = self.PLAYING
-						self.stopListeningAcked = 0	
-					if self.requestSent == self.PAUSE:
-						self.state = self.READY
-						self.stopListeningAcked = 1
-					if self.requestSent == self.TEARDOWN:
-						self.state = self.INIT
-						self.stopListeningAcked = 1
-					if self.requestSent == self.DESCRIBE:
-						sdp = open("sdp.txt","r")
-						lines = sdp.readlines()
-						for line in lines:
-							line = line.replace("\n","")
-							print(line)
+		try:
+			lines = data.split('\n')
+			seqNum = int(lines[1].split(' ')[1])
+			if seqNum == self.rtspSeq:
+				session = int(lines[2].split(' ')[1])
+				if self.sessionId == 0:
+					self.sessionId = session
+				if self.sessionId == session:
+					if int(lines[0].split(' ')[1]) == 200:
+						if self.requestSent == self.SETUP:
+							self.state = self.READY
+						if self.requestSent == self.PLAY:
+							self.stopListeningAcked = 0
+							self.state = self.PLAYING
+							self.stopListeningAcked = 0	
+						if self.requestSent == self.PAUSE:
+							self.state = self.READY
+							self.stopListeningAcked = 1
+						if self.requestSent == self.TEARDOWN:
+							self.state = self.INIT
+							self.stopListeningAcked = 1
+		except:
+			if self.requestSent == self.DESCRIBE:
+				sdp = open("sdp.txt","w")
+				# sdp.write(data)
+				sdp.write(data)
+				sdp.close()
+				sdp = open("sdp.txt","r")
+				for line in sdp.readlines():
+					line.replace("\n","")
+					print(line)
+				sdp.close()
+
 
 	
 	def openRtpPort(self):
