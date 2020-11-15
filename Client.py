@@ -144,6 +144,9 @@ class Client(QWidget):
 		videoBox.setContentsMargins(0,0,0,0)
 		videoBox.addWidget(self.videoScreen)
 		# videoBox.addLayout(listVideoBox)
+
+		#Statistic Layout
+		# statisticBox = QVBoxLayout()
 		#VBoxLayout
 		vBox = QVBoxLayout()
 		vBox.addLayout(videoBox)
@@ -187,8 +190,8 @@ class Client(QWidget):
 	def stopMovie(self):
 		if (self.requestSent == self.PAUSE and self.state == self.READY) or self.requestSent == self.PLAY:
 			self.sendRtspRequest(self.TEARDOWN)
-			self.play_t.join()
-			self.recvRtsp_t.join()
+			# self.play_t.join()
+			# self.recvRtsp_t.join()
 			self.rtspSeq = 0
 			self.sessionId = 0
 			self.requestSent = -1
