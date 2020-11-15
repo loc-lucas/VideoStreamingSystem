@@ -46,6 +46,7 @@ class Client(QWidget):
 		self.frameNbr = 0
 		self.totalTime = 0
 		self.replySent = 0
+		self.checkPause = 0
 		self.listVideo =[]
 		
 		self.init_ui()
@@ -78,8 +79,8 @@ class Client(QWidget):
 		appIcon = QIcon("image.icon")
 		self.setWindowIcon(appIcon)
 		#Create slider
-		slider = QSlider(Qt.Horizontal)
-		slider.setRange(0,self.frameNbr)
+		# slider = QSlider(Qt.Horizontal)
+		# slider.setRange(0,self.frameNbr)
 		#Create buttons
 		playBtn = QPushButton("", self)
 		playBtn.setIconSize(QSize(30,30))
@@ -136,14 +137,21 @@ class Client(QWidget):
 		# listVideoBox.addWidget(self.listVideoTitle)
 		# listVideoBox.addWidget(self.listVideo)
 		# listVideoBox.addWidget(self.attrVideo)
+		#Statistic Layout
+		statisticBox = QVBoxLayout()
+		self.videoRateLabel = QLabel(self)
+		self.videoRateLabel.setMinimumSize(180,50)			
+		self.videoRateLabel.setAlignment(Qt.AlignTop)
+		statisticBox.addWidget(self.videoRateLabel)
 		videoBox = QHBoxLayout()
 		videoBox.setContentsMargins(0,0,0,0)
 		videoBox.addWidget(self.videoScreen)
+		videoBox.addLayout(statisticBox)
 		# videoBox.addLayout(listVideoBox)
 		#VBoxLayout
 		vBox = QVBoxLayout()
 		vBox.addLayout(videoBox)
-		vBox.addWidget(slider)
+		#vBox.addWidget(slider)
 		vBox.addLayout(hBox)
 		# vBox.addWidget(chooseVideoBtn)	
 		vBox.addStretch()
@@ -211,6 +219,7 @@ class Client(QWidget):
 			self.duration += round(float(time()),2) - self.startTime ## calculate total duration
 			self.startTime = 0	#set start time of the duration to 0
 			#self.stopListeningAcked = 1
+			self.checkPause = 1
 			self.play_t.join()	
 			
 	
@@ -227,27 +236,35 @@ class Client(QWidget):
 	def videoRate(self):
 		"""calculate video rate (bit/s)"""
 		#videoSize = 1 ##  take from the description
-		if self.duration == 0:
+		if self.checkPause == 0 and self.videoDuration != 0:
 			self.duration = self.videoDuration
 			bitRate = round(float(self.playedSize) / self.duration, 2)
+		elif self.checkPause == 0 and self.videoDuration == 0:
+			bitRate = 0
 		else:
 			bitRate = round(float(self.playedSize) / self.duration, 2)
-		print(bitRate)
-		print(self.duration)
-		print(self.playedSize)
+		#print(self.rtpLossRate(25))
+		self.videoRateLabel.setText("Video Rate: " + str(bitRate) + " bit/s\nLoss Rate: "
+		 + str(self.rtpLossRate(self.totalTime * 20)) + " %"
+		 + "\nCurrent Time: " + str(self.currentTime()) + "s"
+		 + "\nRemaining Time: " + str(self.remainTime()) + "s")
+	def currentTime(self):
+		return int(self.frameNbr / 20 + 0.05)
+
+	def remainTime(self):
+		return int(self.totalTime - (self.frameNbr / 20))
 
 	def rtpLossRate(self, totalPacket):
 		"""calculate RTP packet loss rate"""
-		totalPacket = 1
+		#totalPacket = 1
 		lossRate = self.packetLoss / totalPacket
-		print(self.packetLoss)
-		print(lossRate)
+		return lossRate
 
 	def listenRtp(self):		
 		"""Listen for RTP packets."""
 		#TODO
 		while True:
-			print("ack = ", self.stopListeningAcked)
+			#print("ack = ", self.stopListeningAcked)
 			try:
 				#print(threading.active_count())
 				data = self.rtpSocket.recv(20480)   ## Why 20480?
@@ -257,12 +274,15 @@ class Client(QWidget):
 					current_frame = rtpPacket.seqNum()
 					if current_frame - self.frameNbr > 1 :
 						self.packetLoss += current_frame - self.frameNbr - 1
-					if current_frame == 500:
-						self.videoDuration = round(float(time()),2) - self.startTime - 0.05*2
-
+					self.lastSeq = current_frame
+					self.videoDuration = round(float(time()),2) - self.startTime - 0.05*2
+					self.videoRate()
 					if current_frame > self.frameNbr:
 						self.frameNbr = current_frame
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
+				else:
+					self.lastSeq = self.totalTime * 20
+					self.videoRate()
 			except:
 				if self.stopListeningAcked == 1:
 					break
@@ -344,7 +364,7 @@ class Client(QWidget):
 			reply = self.rtspSocket.recv(256).decode('utf-8')
 			if reply:
 				if reply[:2] == 'tt':
-					self.parseRtspReply(reply[2:])
+					self.totalTime = float(reply[2:])
 				elif reply[:2] == 'cc':
 					self.parseRtspReply(reply[2:])
 				# elif reply[:2] == 'lv':

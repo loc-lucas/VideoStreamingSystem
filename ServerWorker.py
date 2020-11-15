@@ -75,6 +75,7 @@ class ServerWorker:
 				# Send RTSP reply
 				self.replyRtsp(self.OK_200, seq[1])
 				totalTime = ("tt" + str(self.clientInfo['videoStream'].totalTime())).encode()
+				#totalTime = 0
 				self.clientInfo['rtspSocket'][0].send(totalTime)
 				# Get the RTP/UDP port from the last line
 
@@ -143,15 +144,15 @@ class ServerWorker:
 				sdp1 ='\n\nv=' + str(v) + '\ns=' + s + '\nt=' + str(t) +'\nm=' + m + '\na=' + a
 				sdp = 'cc' + 'Content-Base:' + filename + '\nContent-Type:application/sdp' + '\nContent-Length:' + str(len(sdp1)) + sdp1
 				self.clientInfo['rtspSocket'][0].send(sdp.encode())				  
-		elif requestType == self.GETLIST:
-				print("processing GETLIST\n")
-				self.replyRtsp(self.OK_200, seq[1]) 
-				jsonFile = open("videoList.txt","r")
-				output = ''
-				for line in jsonFile.readlines():
-					output += line
-				output = 'lv' +output
-				self.clientInfo['rtspSocket'][0].send(output.encode())
+		# elif requestType == self.GETLIST:
+		# 		print("processing GETLIST\n")
+		# 		self.replyRtsp(self.OK_200, seq[1]) 
+		# 		jsonFile = open("videoList.txt","r")
+		# 		output = ''
+		# 		for line in jsonFile.readlines():
+		# 			output += line
+		# 		output = 'lv' +output
+		# 		self.clientInfo['rtspSocket'][0].send(output.encode())
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
