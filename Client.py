@@ -12,7 +12,7 @@ from RtpPacket import RtpPacket
 CACHE_FILE_NAME = "cache-"
 CACHE_FILE_EXT = ".jpg"
 import json
-	
+import math
 class Client(QWidget):
 	INIT = 0
 	READY = 1
@@ -54,7 +54,9 @@ class Client(QWidget):
 		self.replySent = 0
 		self.videoDuration = 0
 		self.comboFlag = 1
-
+		self.realFrameNbr = 0
+		self.moveFlag = 0
+		self.backFlag = 0
 		self.init_ui()
 
 	def init_ui(self):
@@ -66,27 +68,9 @@ class Client(QWidget):
 		self.videoScreen.setStyleSheet("QWidget {background-color: rgba(0,0,0,1);}")
 		self.videoScreen.setAlignment(Qt.AlignCenter)
 		self.videoScreen.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-		#Video List
-		# self.listVideo = QLabel(self)
-		# self.listVideo.setBaseSize(120,300)
-		# self.listVideo.setStyleSheet("QWidget {background-color: rgba(255,255,255,1); border: 1px solid rgba(188, 188, 188, 250);}")
-		# self.listVideo.setAlignment(Qt.AlignVCenter)
-		
-		# self.listVideoTitle = QLabel(self)
-		# self.listVideoTitle.setStyleSheet("QWidget {background-color: rgba(255,255,255,1); border: 1px solid rgba(188, 188, 188, 250);}")
-		# self.listVideoTitle.setBaseSize(120,50)
-		# self.listVideoTitle.setAlignment(Qt.AlignCenter)
-		# self.listVideoTitle.setText("Video List")	
-		# self.listVideoTitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-		# self.attrVideo = QLabel(self)
-		# self.attrVideo.setBaseSize(120,100)
-		# self.attrVideo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 		#Apps icon
 		appIcon = QIcon("image.icon")
 		self.setWindowIcon(appIcon)
-		#Create slider
-		slider = QSlider(Qt.Horizontal)
-		slider.setRange(0,self.frameNbr)
 		#Create buttons
 		playBtn = QPushButton("", self)
 		playBtn.setIconSize(QSize(30,30))
@@ -134,7 +118,7 @@ class Client(QWidget):
 		self.comboBox = QComboBox(self)
 		self.comboButton = QPushButton("Choose Video", self)
 		self.comboButton.clicked.connect(self.switchVid)
-
+		#Statistic box vertical layout
 		statisticBox = QVBoxLayout()
 		self.videoRateLabel = QLabel(self)
 		self.videoRateLabel.setMinimumSize(180,50)
@@ -143,8 +127,7 @@ class Client(QWidget):
 		statisticBox.addWidget(switchMovieBtn)
 		statisticBox.addWidget(self.comboButton)
 		statisticBox.addWidget(self.comboBox)
-		
-		
+
 		#HBoxLayout
 		hBox = QHBoxLayout()
 		hBox.setContentsMargins(0,0,0,0)
@@ -160,13 +143,9 @@ class Client(QWidget):
 		videoBox.addWidget(self.videoScreen)
 		videoBox.addLayout(statisticBox)
 
-		# #Statistic Layout
-		statisticBox = QVBoxLayout()
-
 		# #VBoxLayout
 		vBox = QVBoxLayout()
 		vBox.addLayout(videoBox)
-		vBox.addWidget(slider)
 		vBox.addLayout(hBox)
 		# vBox.addWidget(chooseVideoBtn)	
 		vBox.addStretch()
@@ -175,9 +154,11 @@ class Client(QWidget):
 
 	def bwMovie(self):
 		if self.state == self.PLAYING or self.state == self.READY:
+			self.backFlag = 1
 			self.sendRtspRequest(self.BACKKWARD)
 	def fwMovie(self):
 		if self.state == self.PLAYING or self.state == self.READY:
+			self.moveFlag = 1
 			self.sendRtspRequest(self.FORWARD)
 	def describeMovie(self):
 		self.sendRtspRequest(self.DESCRIBE)
@@ -230,7 +211,9 @@ class Client(QWidget):
 			self.requestSent = -1
 			self.stopListeningAcked = 0
 			self.frameNbr = 0	
+			self.videoRateLabel.clear()
 			self.videoScreen.clear()
+			self.realFrameNbr = 0
 			self.sendRtspRequest(self.SETUP)
 
 	def exitClient(self):
@@ -276,7 +259,25 @@ class Client(QWidget):
 			bitRate = 0
 		else:
 			bitRate = round(float(self.playedSize) / self.duration, 2)
-		return bitRate
+		#print(self.rtpLossRate(25))
+		self.videoRateLabel.setText("Video Rate: " + str(bitRate) + " bit/s\nLoss Rate: "
+		 + str(self.rtpLossRate(self.totalTime * 20)) + " %"
+		 + "\nCurrent Time: " + str(self.currentTime()) + "s"
+		 + "\nRemaining Time: "  + str(self.remainTime()) + "s")
+	def currentTime(self):
+		tmp = self.realFrameNbr / int(self.fps)
+		if tmp < 0:
+			tmp = 0
+		elif tmp > self.totalTime: tmp = self.totalTime
+		return math.ceil(tmp) if self.totalTime - tmp > 0 else math.floor(tmp)
+
+	def remainTime(self):
+		tmp = tmp = self.totalTime - float(self.realFrameNbr / int(self.fps))
+		if tmp < 0:
+			tmp = 0
+		elif tmp > self.totalTime: tmp = self.totalTime
+
+		return math.floor(tmp) if tmp > 0 else math.ceil(tmp)
 
 	def rtpLossRate(self, totalPacket):
 		"""calculate RTP packet loss rate"""
@@ -288,22 +289,33 @@ class Client(QWidget):
 		"""Listen for RTP packets."""
 		#TODO
 		while True:
+			#print("ack = ", self.stopListeningAcked)
 			try:
-				data = self.rtpSocket.recv(40960)   ## Why 20480?
+				#print(threading.active_count())
+				data = self.rtpSocket.recv(20480)   ## Why 20480?
 				if data:
-					
 					rtpPacket = RtpPacket() 		## In reality, is the RtpPacket.py the same place as Client.py?
 					rtpPacket.decode(data)
 					current_frame = rtpPacket.seqNum()
 					if current_frame - self.frameNbr > 1 :
 						self.packetLoss += current_frame - self.frameNbr - 1
-					self.videoDuration = round(float(time()),2) - self.startTime - 0.05*2		#calculate  video duration
-					#print(self.videoDuration)
+					self.lastSeq = current_frame
+					self.videoDuration = round(float(time()),2) - self.startTime - 0.05*2
+					self.videoRate()
 					if current_frame > self.frameNbr:
+						if self.moveFlag == 0 and self.backFlag == 0:
+							self.realFrameNbr += 1
+						elif self.moveFlag == 1:
+							self.realFrameNbr += 5 * int(self.fps)
+							self.moveFlag = 0
+						elif self.backFlag == 1:
+							self.realFrameNbr -= 5 * int(self.fps)
+							self.backFlag = 0
 						self.frameNbr = current_frame
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
 				else:
-					break
+					self.lastSeq = self.totalTime * 20
+					self.videoRate()
 			except:
 				if self.stopListeningAcked == 1:
 					break
@@ -384,12 +396,11 @@ class Client(QWidget):
 				break
 			reply = self.rtspSocket.recv(256).decode('utf-8')
 			if reply:
-				if reply[:2] == 'tt':
-					self.parseRtspReply(reply[2:])
+				if reply.split(' ')[0] == 'tt':
+					self.totalTime = float(reply.split(' ')[1])
+					self.fps = float(reply.split(' ')[2])
 				elif reply[:2] == 'cc':
 					self.parseRtspReply(reply[2:])
-				# elif reply[:2] == 'lv':
-				# 	self.parseRtspReply(reply[2:])
 				else:
 					print('\n--------Reply--------\n')
 					print(reply)

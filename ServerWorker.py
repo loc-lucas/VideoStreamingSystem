@@ -77,7 +77,7 @@ class ServerWorker:
 				self.clientInfo['session'] = randint(100000, 999999)
 				# Send RTSP reply
 				self.replyRtsp(self.OK_200, seq[1])
-				totalTime = ("tt" + str(self.clientInfo['videoStream'].totalTime())).encode()
+				totalTime = ("tt" + ' ' + str(self.clientInfo['videoStream'].totalTime()) + ' ' + str(self.clientInfo['videoStream'].getFPS())).encode()
 				self.clientInfo['rtspSocket'][0].send(totalTime)
 				# Get the RTP/UDP port from the last line
 
@@ -147,7 +147,9 @@ class ServerWorker:
 				sdp = 'cc' + 'Content-Base:' + filename + '\nContent-Type:application/sdp' + '\nContent-Length:' + str(len(sdp1)) + sdp1
 				self.clientInfo['rtspSocket'][0].send(sdp.encode())				  
 		elif requestType == self.GETLIST:
-				self.clientInfo['event'].set()
+				try:
+					self.clientInfo['event'].set()
+				except: pass
 				self.state = self.SWITCH
 				print("processing GETLIST\n")
 				jsonFile = open("videoList.txt","r")
