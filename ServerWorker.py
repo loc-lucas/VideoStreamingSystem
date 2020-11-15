@@ -5,7 +5,6 @@ import numpy as np
 from datetime import datetime
 from VideoStream import VideoStream
 from RtpPacket import RtpPacket
-
 class ServerWorker:
 	SETUP = 'SETUP'
 	PLAY = 'PLAY'
@@ -14,6 +13,7 @@ class ServerWorker:
 	FORWARD = 'FORWARD'
 	BACKWARD = 'BACKWARD'
 	DESCRIBE = 'DESCRIBE'
+	GETLIST = 'GETLIST'
 	
 	INIT = 0
 	READY = 1
@@ -25,14 +25,17 @@ class ServerWorker:
 	CON_ERR_500 = 2
 	
 	clientInfo = {}
-	
+	videoList = {}
+	videoListName = []
+
+
 	def __init__(self, clientInfo):
 		self.clientInfo = clientInfo
 		
 	def run(self):
 		new_t = threading.Thread(target=self.recvRtspRequest)
 		new_t.start()
-	
+
 	def recvRtspRequest(self):
 		"""Receive RTSP request from the client."""
 		connSocket = self.clientInfo['rtspSocket'][0]
@@ -61,7 +64,6 @@ class ServerWorker:
 			if self.state == self.INIT:
 				# Update state
 				print("processing SETUP\n")
-				
 				try:
 					#print(filename)
 					self.clientInfo['videoStream'] = VideoStream(filename)
@@ -73,7 +75,6 @@ class ServerWorker:
 				
 				# Generate a randomized RTSP session ID
 				self.clientInfo['session'] = randint(100000, 999999)
-				
 				# Send RTSP reply
 				self.replyRtsp(self.OK_200, seq[1])
 				totalTime = ("tt" + str(self.clientInfo['videoStream'].totalTime())).encode()
@@ -138,19 +139,23 @@ class ServerWorker:
 				self.replyRtsp(self.OK_200, seq[1])
 				
 				v = 0 #protocol version
-				o = socket.gethostname()
-				s = 'Video streaming'
-				i = 'Using RTP and RTSP for video streaming'
+				s = 'Video streaming by using RTP and RTSP protocol'
 				e = 'huan.tran180220@hcmut.edu.vn, loc.buiquang@hcmut.edu.vn, an.onquan@hcmut.edu.vn'
 				t = datetime.now()
 				m = 'video ' + str(self.clientInfo['rtpPort']) + ' RTP/UDP'
 				a = 'control:streamid=' + str(self.clientInfo['session']) + '\na=mimetype:string;\"video/MJPEG\"'
-				sdp1 ='\n\nv=' + str(v) + '\no=' + o + '\ns=' + s + '\ni=' + i + '\ne=' + e + '\nt=' + str(t) +'\nm=' + m + '\na=' + a
-				sdp = 'Content-Base:' + filename + '\nContent-Type:application/sdp' + '\nContent-Length:' + str(len(sdp1)) + sdp1
-				print(sdp)
-				f = open("sdp.txt","w")
-				f.write(sdp)
-				f.close()					   
+				sdp1 ='\n\nv=' + str(v) + '\ns=' + s + '\ne=' + e + '\nt=' + str(t) +'\nm=' + m + '\na=' + a
+				sdp = 'cc' + 'Content-Base:' + filename + '\nContent-Type:application/sdp' + '\nContent-Length:' + str(len(sdp1)) + sdp1
+				self.clientInfo['rtspSocket'][0].send(sdp.encode())				  
+		elif requestType == self.GETLIST:
+				print("processing GETLIST\n")
+				self.replyRtsp(self.OK_200, seq[1]) 
+				jsonFile = open("videoList.json","r")
+				output = ''
+				for line in jsonFile.readlines():
+					output += line
+				output = 'lv' +output
+				self.clientInfo['rtspSocket'][0].send(output.encode())
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
