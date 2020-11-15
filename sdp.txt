@@ -1,0 +1,10 @@
+Content-Base:movie4.mp4
+Content-Type:application/sdp
+Content-Length:162
+
+v=0
+s=Video streaming by using RTP and RTSP protocol
+t=2020-11-15 13:46:23.405399
+m=video 2001 RTP/UDP
+a=control:streamid=506043
+a=mimetype:string;"video/MJPEG"
