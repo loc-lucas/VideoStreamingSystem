@@ -77,7 +77,7 @@ class ServerWorker:
 				self.clientInfo['session'] = randint(100000, 999999)
 				# Send RTSP reply
 				self.replyRtsp(self.OK_200, seq[1])
-				totalTime = ("tt" + str(self.clientInfo['videoStream'].totalTime())).encode()
+				totalTime = ("tt" + str(self.clientInfo['videoStream'].totalTime2())).encode()
 				self.clientInfo['rtspSocket'][0].send(totalTime)
 				# Get the RTP/UDP port from the last line
 

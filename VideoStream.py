@@ -6,7 +6,7 @@ class VideoStream:
 		try:
 			self.file = open(filename, 'rb')
 			self.tmpFile = open(filename, 'rb')
-			self.videoData = imageio.get_reader(filename, 'ffmpeg')
+			self.videoData = imageio.get_reader(filename, 'ffmpeg')		## read data of video into matrix
 		except:
 			raise IOError
 		self.frameNum = 0
