@@ -1,7 +1,7 @@
 from socket import timeout
 from threading import Thread, current_thread
 from PySide2.QtWidgets import QWidget,QPushButton, QMessageBox, QLabel
-from PySide2.QtWidgets import QApplication, QSlider, QVBoxLayout, QHBoxLayout, QSizePolicy
+from PySide2.QtWidgets import QApplication, QSlider, QVBoxLayout, QHBoxLayout, QSizePolicy, QComboBox
 from PySide2.QtGui import QIcon, QPixmap
 from PySide2.QtCore import Qt,QSize
 from time import time
@@ -44,13 +44,17 @@ class Client(QWidget):
 		self.checkPause = 0
 		self.connectToServer()
 		self.openRtpPort()
-		# self.getListOfVids()
+		
+		self.listVideoName = []
+		self.listFileName = []
+		self.listDuration = []
+		
 		self.frameNbr = 0
 		self.totalTime = 0
 		self.replySent = 0
 		self.videoDuration = 0
-		self.listVideo =[]
-		
+		self.comboFlag = 1
+
 		self.init_ui()
 
 	def init_ui(self):
@@ -120,12 +124,27 @@ class Client(QWidget):
 		infoBtn.setIconSize(QSize(30,30))
 		infoBtn.clicked.connect(self.describeMovie)
 		infoBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+		switchMovieBtn = QPushButton("Switch Video", self)
+		switchMovieBtn.setFixedSize(180,50)
+		switchMovieBtn.setIconSize(QSize(30,30))
+		switchMovieBtn.clicked.connect(self.chooseVid)
+		switchMovieBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+		self.comboBox = QComboBox(self)
+		self.comboButton = QPushButton("Choose Video", self)
+		self.comboButton.clicked.connect(self.switchVid)
+
+		statisticBox = QVBoxLayout()
+		self.videoRateLabel = QLabel(self)
+		self.videoRateLabel.setMinimumSize(180,50)
+		self.videoRateLabel.setAlignment(Qt.AlignTop)
+		statisticBox.addWidget(self.videoRateLabel)
+		statisticBox.addWidget(switchMovieBtn)
+		statisticBox.addWidget(self.comboButton)
+		statisticBox.addWidget(self.comboBox)
 		
-		# chooseVideoBtn = QPushButton("", self)
-		# chooseVideoBtn.setIcon(QIcon('info.icon'))
-		# chooseVideoBtn.setIconSize(QSize(30,30))
-		# chooseVideoBtn.clicked.connect(self.listMovie)
-		# chooseVideoBtn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+		
 		#HBoxLayout
 		hBox = QHBoxLayout()
 		hBox.setContentsMargins(0,0,0,0)
@@ -135,19 +154,16 @@ class Client(QWidget):
 		hBox.addWidget(fwBtn)
 		hBox.addWidget(pauseBtn)
 		hBox.addWidget(stopBtn)
-		# listVideoBox = QVBoxLayout()
-		# listVideoBox.addWidget(self.listVideoTitle)
-		# listVideoBox.addWidget(self.listVideo)
-		# listVideoBox.addWidget(self.attrVideo)
 		#VideoBox layout
 		videoBox = QHBoxLayout()
 		videoBox.setContentsMargins(0,0,0,0)
 		videoBox.addWidget(self.videoScreen)
-		# videoBox.addLayout(listVideoBox)
+		videoBox.addLayout(statisticBox)
 
-		#Statistic Layout
-		# statisticBox = QVBoxLayout()
-		#VBoxLayout
+		# #Statistic Layout
+		statisticBox = QVBoxLayout()
+
+		# #VBoxLayout
 		vBox = QVBoxLayout()
 		vBox.addLayout(videoBox)
 		vBox.addWidget(slider)
@@ -155,10 +171,7 @@ class Client(QWidget):
 		# vBox.addWidget(chooseVideoBtn)	
 		vBox.addStretch()
 		#vBox.addLayout(StatisticBox)
-		self.setLayout(vBox)
-
-	# def getListOfVids(self):
-	# 	self.sendRtspRequest(self.GETLIST)
+		self.setLayout(vBox)	
 
 	def bwMovie(self):
 		if self.state == self.PLAYING or self.state == self.READY:
@@ -168,9 +181,6 @@ class Client(QWidget):
 			self.sendRtspRequest(self.FORWARD)
 	def describeMovie(self):
 		self.sendRtspRequest(self.DESCRIBE)
-	# def listMovie(self):
-	# 	self.sendRtspRequest(self.GETLIST)
-	# 	print(self.listVideo)
 		
 	def closeEvent(self, event):
 		reply = QMessageBox.question(
@@ -187,11 +197,34 @@ class Client(QWidget):
 		
 	def showTotalTime(self):
 		print(self.totalTime)
+
+	def switchVid(self):
+		try:
+			self.fileName = self.listFileName[self.comboBox.currentIndex()]
+			self.comboBox.clear()
+			self.stopMovie()
+		except:
+			pass
+		
+
+	def chooseVid(self):
+		self.comboBox.clear()
+		# if self.requestSent == self.PLAY:
+		# 	self.play_t.join()
+		self.sendRtspRequest(self.GETLIST)  #self.state = SWITCH
+		self.comboBox.addItems(self.listVideoName)
+		self.listVideoName = []
+		self.listFileName = []
+		self.listDuration = []
+		self.state = self.SWITCH
+		self.comboBox.showPopup()
+
+
 	def stopMovie(self):
-		if (self.requestSent == self.PAUSE and self.state == self.READY) or self.requestSent == self.PLAY:
+		if (self.requestSent == self.PAUSE and self.state == self.READY) or self.requestSent == self.PLAY or self.state == self.SWITCH:
 			self.sendRtspRequest(self.TEARDOWN)
 			# self.play_t.join()
-			# self.recvRtsp_t.join()
+			self.recvRtsp_t.join()
 			self.rtspSeq = 0
 			self.sessionId = 0
 			self.requestSent = -1
@@ -227,8 +260,7 @@ class Client(QWidget):
 	def playMovie(self):
 		"""Play button handler."""
 		#TODO
-		#if self.firstPlay == 0:
-		if self.state == self.READY:
+		if self.state == self.READY or self.state == self.SWITCH:
 			self.startTime = round(float(time()),2)	#set start time of the duration when press PLAY
 			self.sendRtspRequest(self.PLAY)
 			self.play_t = threading.Thread(target = self.listenRtp)
@@ -256,9 +288,7 @@ class Client(QWidget):
 		"""Listen for RTP packets."""
 		#TODO
 		while True:
-			#print("ack = ", self.stopListeningAcked)
 			try:
-				#print(threading.active_count())
 				data = self.rtpSocket.recv(40960)   ## Why 20480?
 				if data:
 					
@@ -286,7 +316,6 @@ class Client(QWidget):
 		temp_file = open(file_name, 'wb') ## open in binary format and write
 		temp_file.write(data)
 		temp_file.close()
-		#imageio.imwrite(file_name, np.array(data[3:]).reshape(data[0],data[1],3))
 		self.playedSize += os.path.getsize(file_name)	## total played video size
 		return file_name
 
@@ -322,7 +351,7 @@ class Client(QWidget):
 			self.playedSize = 0
 			self.duration = 0
 			self.packetLoss = 0
-		elif requestCode == self.PLAY and self.state == self.READY:
+		elif (requestCode == self.PLAY and self.state == self.READY) or (requestCode == self.PLAY and self.state == self.SWITCH):
 			request = 'PLAY ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
 			self.requestSent =  self.PLAY
 		elif requestCode == self.PAUSE and self.state == self.PLAYING:
@@ -340,9 +369,9 @@ class Client(QWidget):
 		elif requestCode == self.DESCRIBE:
 			request = 'DESCRIBE ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
 			self.requestSent = self.DESCRIBE
-		# elif requestCode == self.GETLIST:
-		# 	request = 'GETLIST ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
-		# 	self.requestSent = self.GETLIST
+		elif requestCode == self.GETLIST:
+		 	request = 'GETLIST ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+		 	self.requestSent = self.GETLIST
 		else: return
 		self.rtspSocket.send(request.encode())
 		print('\nData sent:\n' + request)
@@ -382,7 +411,6 @@ class Client(QWidget):
 						if self.requestSent == self.SETUP:
 							self.state = self.READY
 						if self.requestSent == self.PLAY:
-							self.stopListeningAcked = 0
 							self.state = self.PLAYING
 							self.stopListeningAcked = 0	
 						if self.requestSent == self.PAUSE:
@@ -391,6 +419,17 @@ class Client(QWidget):
 						if self.requestSent == self.TEARDOWN:
 							self.state = self.INIT
 							self.stopListeningAcked = 1
+						if self.requestSent == self.GETLIST:
+							self.state = self.SWITCH
+							self.stopListeningAcked = 1
+							self.listVideoName = []
+							self.listFileName = []
+							self.listDuration = []
+							for i in lines[3:]:
+								self.listVideoName += [i.split(',')[0]]		
+								self.listFileName += [i.split(',')[1]]
+								self.listDuration += [i.split(',')[2]]
+
 		except:
 			if self.requestSent == self.DESCRIBE:
 				sdp = open("sdp.txt","w")

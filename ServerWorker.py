@@ -18,6 +18,7 @@ class ServerWorker:
 	INIT = 0
 	READY = 1
 	PLAYING = 2
+	SWITCH = 3
 	state = INIT
 
 	OK_200 = 0
@@ -56,7 +57,7 @@ class ServerWorker:
 		
 		# Get the RTSP sequence number 
 		seq = request[1].split(' ')
-		
+
 		# Process SETUP request
 		print(requestType)
 		if requestType == self.SETUP:
@@ -67,7 +68,7 @@ class ServerWorker:
 					#print(filename)
 					self.clientInfo['videoStream'] = VideoStream(filename)
 					self.state = self.READY
-					self.clientInfo['videoStream'].totalFrame2(filename)
+					self.clientInfo['videoStream'].totalFrame(filename)
 					
 				except IOError:
 					self.replyRtsp(self.FILE_NOT_FOUND_404, seq[1])
@@ -76,7 +77,7 @@ class ServerWorker:
 				self.clientInfo['session'] = randint(100000, 999999)
 				# Send RTSP reply
 				self.replyRtsp(self.OK_200, seq[1])
-				totalTime = ("tt" + str(self.clientInfo['videoStream'].totalTime2())).encode()
+				totalTime = ("tt" + str(self.clientInfo['videoStream'].totalTime())).encode()
 				self.clientInfo['rtspSocket'][0].send(totalTime)
 				# Get the RTP/UDP port from the last line
 
@@ -84,7 +85,7 @@ class ServerWorker:
 		
 		# Process PLAY request 		
 		elif requestType == self.PLAY:
-			if self.state == self.READY:
+			if self.state == self.READY or self.state == self.SWITCH:
 				print("processing PLAY\n")
 				self.state = self.PLAYING
 				
@@ -124,14 +125,14 @@ class ServerWorker:
 		elif requestType == self.FORWARD:
 			if self.state == self.PLAYING or self.state == self.READY:
 				print("processing FORWARD\n")
-				self.clientInfo['videoStream'].moveForward2()
+				self.clientInfo['videoStream'].moveForward()
 				self.replyRtsp(self.OK_200, seq[1])
 
 		# Process BACKWARDvrequest
 		elif requestType == self.BACKWARD:
 			if self.state == self.PLAYING or self.state == self.READY:
 				print("processing BACKWARD\n")
-				self.clientInfo['videoStream'].moveBackward2()
+				self.clientInfo['videoStream'].moveBackward()
 				self.replyRtsp(self.OK_200, seq[1])
 		elif requestType == self.DESCRIBE:
 				print("processing DESCRIBE\n")
@@ -146,25 +147,28 @@ class ServerWorker:
 				sdp = 'cc' + 'Content-Base:' + filename + '\nContent-Type:application/sdp' + '\nContent-Length:' + str(len(sdp1)) + sdp1
 				self.clientInfo['rtspSocket'][0].send(sdp.encode())				  
 		elif requestType == self.GETLIST:
+				self.clientInfo['event'].set()
+				self.state = self.SWITCH
 				print("processing GETLIST\n")
-				self.replyRtsp(self.OK_200, seq[1]) 
 				jsonFile = open("videoList.txt","r")
 				output = ''
 				for line in jsonFile.readlines():
 					output += line
-				output = 'lv' +output
-				self.clientInfo['rtspSocket'][0].send(output.encode())
+				reply = 'RTSP/1.0 200 OK\nCSeq: ' + seq[1] + '\nSession: ' + str(self.clientInfo['session']) + '\n' + output
+				connSocket = self.clientInfo['rtspSocket'][0] ## because this is RTSP/TCP, unlike the rpt sender,
+				connSocket.send(reply.encode())
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
 		while True:
-			self.clientInfo['event'].wait(0.05) 
+			t = 1/self.clientInfo['videoStream'].getFPS()
+			self.clientInfo['event'].wait(t) 
 			
 			# Stop sending if request is PAUSE or TEARDOWN
 			if self.clientInfo['event'].isSet(): 
 				break 
 				
-			data = self.clientInfo['videoStream'].nextFrame2()
+			data = self.clientInfo['videoStream'].nextFrame()
 			if data: 
 				frameNumber = self.clientInfo['videoStream'].frameNbr()
 				try:

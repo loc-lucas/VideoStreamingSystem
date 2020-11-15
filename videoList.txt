@@ -1,4 +1,3 @@
-"movie1.Mjpeg"
-"movie2.Mjpeg"
-"movie3.Mjpeg"
-"movie4.Mjpeg"
+Vid 1,movie1.mjpeg,25
+Vid 2,movie2.mp4,125
+Vid 3,movie3.avi,30
