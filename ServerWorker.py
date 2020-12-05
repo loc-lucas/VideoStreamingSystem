@@ -95,6 +95,7 @@ class ServerWorker:
 
 				# Create a new thread and start sending RTP packets
 				self.clientInfo['event'] = threading.Event()
+				self.clientInfo['event'].clear()
 				self.clientInfo['worker'] = threading.Thread(target=self.sendRtp) 
 				self.clientInfo['worker'].start()
 		
@@ -165,7 +166,7 @@ class ServerWorker:
 		while True:
 			t = 1/self.clientInfo['videoStream'].getFPS()
 			self.clientInfo['event'].wait(t) 
-			
+			print('1\n2')
 			# Stop sending if request is PAUSE or TEARDOWN
 			if self.clientInfo['event'].isSet(): 
 				break 

@@ -248,6 +248,7 @@ class Client(QWidget):
 			self.sendRtspRequest(self.PLAY)
 			self.play_t = threading.Thread(target = self.listenRtp)
 			self.play_t.start()
+		print(self.videoDuration)
 	
 	def videoRate(self):
 		"""calculate video rate (bit/s)"""
@@ -260,8 +261,8 @@ class Client(QWidget):
 		else:
 			bitRate = round(float(self.playedSize) / self.duration, 2)
 		#print(self.rtpLossRate(25))
-		self.videoRateLabel.setText("Video Rate: " + str(bitRate) + " bit/s\nLoss Rate: "
-		 + str(self.rtpLossRate(self.totalTime * 20)) + " %"
+		self.videoRateLabel.setText("Video Rate: " + str(bitRate) + " byte/s\nLoss Rate: "
+		 + str(self.rtpLossRate(self.totalTime * float(self.fps))) + " %"
 		 + "\nCurrent Time: " + str(self.currentTime()) + "s"
 		 + "\nRemaining Time: "  + str(self.remainTime()) + "s")
 	def currentTime(self):
@@ -283,7 +284,7 @@ class Client(QWidget):
 		"""calculate RTP packet loss rate"""
 		lossRate = self.packetLoss / totalPacket
 		# print(self.packetLoss)
-		return lossRate
+		return round(lossRate,2)*100
 
 	def listenRtp(self):		
 		"""Listen for RTP packets."""
